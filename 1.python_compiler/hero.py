@@ -3,13 +3,16 @@
 
 # Run this to generate bash auto complete script: Tools -- --completion
 
-import os, re
-
 from auto_everything.python import Python #type: ignore
 from auto_everything.disk import Disk #type: ignore
-
+from auto_everything.io import IO #type: ignore
+from auto_everything.terminal import Terminal #type: ignore
 python = Python()
 disk = Disk()
+io_ = IO()
+terminal = Terminal()
+
+import hero_to_cpp
 
 # def itIsWindows():
 #     if os.name == 'nt':
@@ -17,6 +20,9 @@ disk = Disk()
 #     return False
 
 class Hero():
+    def __init__(self):
+        self.hero_to_cpp_compiler = hero_to_cpp.HeroToCppCompiler()
+
     def hi(self):
         print("""
         Hi!\n\nThis is the Hero Programming Language that was made by yingshaoxo.
@@ -33,7 +39,22 @@ class Hero():
         file: 
             Code file, like 'xx.hero'
         """
-        pass
+        file = disk.get_absolute_path(path=file)
+        directory_path = disk.get_directory_path(path=file)
+
+        output_folder = disk.get_a_temp_folder_path()
+        # output_folder = "/home/yingshaoxo/CS/hero/playground/run_compiling_output"
+        cpp_file_path = self.hero_to_cpp_compiler.compile_to_cpp_file(input_base_folder=directory_path, input_file=file, output_folder=output_folder)
+        binary_file_path = self.hero_to_cpp_compiler.compile_to_binary_file(input_cpp_file=cpp_file_path, output_binary_file=disk.get_a_temp_file_path("hero_run"))
+        terminal.run(f"""
+        #clear
+        echo ""
+        echo ""
+        echo "_________________________"
+        echo ""
+        echo ""
+        {binary_file_path}
+        """)
 
     def compile(self, file: str, platform: str):
         """
