@@ -12,7 +12,7 @@ disk = Disk()
 io_ = IO()
 terminal = Terminal()
 
-import hero_to_cpp
+import hero_to_golang
 
 # def itIsWindows():
 #     if os.name == 'nt':
@@ -21,7 +21,7 @@ import hero_to_cpp
 
 class Hero():
     def __init__(self):
-        self.hero_to_cpp_compiler = hero_to_cpp.HeroToCppCompiler()
+        self.hero_to_golang_compiler = hero_to_golang.HeroToGolangCompiler()
 
     def hi(self):
         print("""
@@ -42,15 +42,15 @@ class Hero():
         file = disk.get_absolute_path(path=file)
         directory_path = disk.get_directory_path(path=file)
 
-        output_folder = disk.get_a_temp_folder_path()
-        # output_folder = "/home/yingshaoxo/CS/hero/playground/run_compiling_output"
-        cpp_file_path = self.hero_to_cpp_compiler.compile_to_cpp_file(input_base_folder=directory_path, input_file=file, output_folder=output_folder)
-        binary_file_path = self.hero_to_cpp_compiler.compile_to_binary_file(input_cpp_file=cpp_file_path, output_binary_file=disk.get_a_temp_file_path("hero_run"))
+        # output_folder = disk.get_a_temp_folder_path()
+        output_folder = "/home/yingshaoxo/CS/hero/playground/0.first_dev_phase/run_compiling_output"
+        golang_file_path = self.hero_to_golang_compiler.compile_to_golang_file(input_base_folder=directory_path, input_file=file, output_folder=output_folder)
+        binary_file_path = self.hero_to_golang_compiler.compile_to_binary_file(input_go_file=golang_file_path, output_binary_file=disk.get_a_temp_file_path("hero_run"))
         terminal.run(f"""
         #clear
         echo ""
-        echo "cd {disk.get_directory_path(cpp_file_path)}"
-        echo "vim {cpp_file_path}"
+        echo "cd {disk.get_directory_path(golang_file_path)}"
+        echo "vim {golang_file_path}"
         echo ""
         echo ""
         echo "_________________________"
