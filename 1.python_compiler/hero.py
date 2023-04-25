@@ -49,6 +49,9 @@ class Hero():
         terminal.run(f"""
         #clear
         echo ""
+        echo "cd {disk.get_directory_path(cpp_file_path)}"
+        echo "vim {cpp_file_path}"
+        echo ""
         echo ""
         echo "_________________________"
         echo ""

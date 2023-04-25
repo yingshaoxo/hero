@@ -157,15 +157,13 @@ class HeroToCppCompiler:
         output_code = replace_hextag_to_double_slash(output_code)
         output_code = replace_three_quotation_mark_comments_to_empty_string(output_code)
         output_code = replace_import_statement_to_real_code_block(base_dir=input_base_folder, old_text=output_code)
-        output_code = handle_print_function(output_code)
+        # output_code = handle_print_function(output_code)
 
         output_code = add_semicolon_to_the_end_of_a_statement(output_code)
         output_code = change_namespace_access_method_from_dot_to_double_colon(output_code)
 
         output_code = """
-#include <string>
-#include <cstdio>
-#include <iostream>
+#include <bits/stdc++.h>
 using namespace std;
 \n""".lstrip() + output_code
 
