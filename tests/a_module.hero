@@ -1,10 +1,10 @@
-import "fmt"
+import "fmt" as format
 
 string get_username() {
     print("What's your name, dear? ___\n")
 
     username := ""
-    fmt.Scanln(&username)
+    format.Scanln(&username)
 
     return username;
 }

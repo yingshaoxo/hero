@@ -128,7 +128,10 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                 else:
                     # it is go package or hero package
                     # if it is hero package: you need to find the real path from 'hero_modules' folder
-                    return f'import "{module_name}"'
+                    if module_nickname != None:
+                        return f'import {module_nickname} "{module_name}"'
+                    else:
+                        return f'import "{module_name}"'
 
                 if module_nickname != None:
                     module_name = module_nickname
