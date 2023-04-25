@@ -7,12 +7,11 @@
 
 
 import "./a_module.hero"
-import "./color.hero"
-# as color_package
+import "./color.hero" as color_package
 
 void main() {
     a_statement := "Sky is "
-    a_statement = a_statement + color.get_a_color()
+    a_statement = a_statement + color_package.get_a_color()
     print(a_statement, "\n\n")
 
     a_module.print_something()

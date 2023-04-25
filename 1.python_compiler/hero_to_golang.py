@@ -141,7 +141,7 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                 self.compile_to_golang_file(input_base_folder=directory_path, input_file=file, output_folder=output_folder, parent_package_path=parent_package_path)
                 pure_module_file_name, _ = disk.get_stem_and_suffix_of_a_file(path=module_path)
                 
-                return f'import "{parent_package_path}/{pure_module_file_name}"'
+                return f'import {module_name} "{parent_package_path}/{pure_module_file_name}"'
 
         result = re.sub(r"^import \"(?P<name>.*)\"(?: as (?P<nickname>.*))*$", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
 
