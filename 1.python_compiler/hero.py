@@ -95,6 +95,18 @@ class Hero():
         """
         pass
 
+    def update(self, package_name: str, git_link: str | None = None):
+        """
+        Update a package for this project
+        """
+        pass
+
+    def update_all(self):
+        """
+        Update all package for this project
+        """
+        pass
+
 
 python.make_it_global_runnable(executable_name="hero")
 python.fire(Hero)

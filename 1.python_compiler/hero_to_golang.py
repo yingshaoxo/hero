@@ -109,6 +109,25 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
 
         return re.sub(r"^(?P<export>export )*(?P<async>async )*(?P<function_return_type>.*) (?P<function_name>.*)\((?P<function_input_arguments>.*)\) \{(?P<function_content>(?:\n|.)*?)\}", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
     
+    def convert_hero_variable_definition_to_golang_variable_definition(self, old_text: str) -> str:
+        def try_to_do_a_replace_1(match_obj: Any):
+            if match_obj.group() is not None:
+                indent = match_obj.group('indent')
+                variable_type = match_obj.group('variable_type')
+                variable_name = match_obj.group('variable_name')
+                return f'{indent} var {variable_name} {variable_type} ='
+        result = re.sub(r"^(?P<indent>[ \t]*)(?P<variable_type>\w+) (?P<variable_name>\w+) =", try_to_do_a_replace_1, old_text, flags=re.MULTILINE) #type: ignore
+
+        def try_to_do_a_replace_2(match_obj: Any):
+            if match_obj.group() is not None:
+                indent = match_obj.group('indent')
+                variable_type = match_obj.group('variable_type')
+                variable_name = match_obj.group('variable_name')
+                return f'{indent} var {variable_name} {variable_type}'
+        result = re.sub(r"^(?P<indent>[ \t]*)(?P<variable_type>\w+) (?P<variable_name>\w+)$", try_to_do_a_replace_2, result, flags=re.MULTILINE) #type: ignore
+
+        return result #type: ignore
+    
     def handle_import_statement(self, base_dir: str, old_text: str, output_folder: str, parent_package_path: str | None = None) -> Tuple[str, list[str]]:
         package_name_list: list[str] = []
 
@@ -177,6 +196,7 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
         output_code = self.change_hero_function_into_golang_function_format(old_text=output_code)
         output_code, package_name_list = self.handle_import_statement(base_dir=input_base_folder, old_text=output_code, output_folder=output_folder, parent_package_path=parent_package_path)
         output_code = self.convert_hero_package_function_access_method_to_golang_package_function_access_method(old_text=output_code, package_name_list=package_name_list)
+        output_code = self.convert_hero_variable_definition_to_golang_variable_definition(old_text=output_code)
 
         output_code = f"""package {output_pure_file_name}\n\n\n""" + output_code
         # if package_nickname == None:

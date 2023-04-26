@@ -16,6 +16,11 @@ void main() {
 
     a_module.print_something()
     a_module.say_hi()
+
+    string name = "yingshaoxo"
+    string comment
+    comment = " is nice"
+    print(name + comment, "\n")
 }
 
 
