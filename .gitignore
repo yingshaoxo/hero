@@ -1,3 +1,7 @@
-playground/
-__pycache__/
 .vscode/
+
+__pycache__/
+
+build/
+
+playground/

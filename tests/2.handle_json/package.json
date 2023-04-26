@@ -1,0 +1,13 @@
+{
+    "name": "tests",
+    "version": "0.0.1",
+    "author": "yingshaoxo@gmail.com",
+    "scripts": {},
+    "main": "main.hero",
+    "dependencies": {},
+    "devDependencies": {},
+    "go_dependencies": {
+        "github.com/google/uuid": ""
+    },
+    "go_dev_dependencies": {}
+}

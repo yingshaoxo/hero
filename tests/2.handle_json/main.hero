@@ -1,0 +1,9 @@
+import "./json.hero"
+
+import "github.com/google/uuid" as uuid
+
+void main() {
+    json.read_json_text(`{"page": 1, "fruits": ["apple", "peach"], "author": "yingshaoxo"}`)
+
+    println(uuid.New().String())
+}

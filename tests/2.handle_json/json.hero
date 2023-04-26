@@ -1,0 +1,12 @@
+import "encoding/json" as json
+import "fmt"
+//import "log" as my_log
+
+export void read_json_text(string json_string) {
+    map[string]any an_dict
+    json.Unmarshal([]byte(json_string), &an_dict)
+
+    for key, element := range an_dict {
+        fmt.Println("Key:", key, "=>", "Element:", element)
+    }
+}
