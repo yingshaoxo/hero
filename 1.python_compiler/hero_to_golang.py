@@ -69,13 +69,21 @@ class HeroToGolangCompiler:
         return re.sub(r"(?P<variable_type>[\w\[\]\.]+) (?P<variable_name>\w+)", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
 
     def convert_hero_package_function_access_method_to_golang_package_function_access_method(self, old_text: str, package_name_list: list[str]) -> str:
+        def part2_replacement(text: str) -> str:
+            def re_part2_replacement(match_obj: re.Match): #type: ignore
+                if match_obj.group() is not None:
+                    function_name = match_obj.group('function_name') #type: ignore
+                    return f".{function_name.capitalize()}(" #type: ignore
+            text = re.sub(f"\.(?P<function_name>\w+)\(", re_part2_replacement, text, flags=re.MULTILINE) #type: ignore
+            return text #type: ignore
+
         for package_name in package_name_list:
             def try_to_do_a_replace(match_obj: re.Match): #type: ignore
                 if match_obj.group() is not None:
                     part1 = match_obj.group('part1') #type: ignore
                     part2 = match_obj.group('part2') #type: ignore
-                    return part1 + str(part2).capitalize() #type: ignore
-            old_text = re.sub(f"(?P<part1>{package_name}\.\s*)(?P<part2>\w)", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
+                    return part1 + part2_replacement(part2) #type: ignore
+            old_text = re.sub(f"(?P<part1>{package_name})(?P<part2>(?:\s*\.\w+\((?:(?:\s|.)*?)+\))+)", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
         return str(old_text) #type: ignore
     
     def change_hero_function_into_golang_function_format_by_using_regex_in_a_unsafe_way(self, old_text: str) -> str:
@@ -225,7 +233,7 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                     # if it is hero package: you need to find the real path from 'hero_modules' folder
                     if module_nickname == None:
                         module_nickname = module_name
-                    package_name_list.append(module_name)
+                    package_name_list.append(module_nickname)
                     return f'import {module_nickname} "{module_name}"'
 
                 file = disk.get_absolute_path(path=module_path)
@@ -294,17 +302,19 @@ package {output_pure_file_name}\n\n\n""".lstrip() + output_code
         base_folder = disk.get_directory_path(input_go_file)
 
         if operation_system != None and architecture != None:
-            terminal.run(f"""
+            result = terminal.run_command(f"""
             export GOOS={operation_system} 
             export GOARCH={architecture}
             export GO111MODULE=on
             go build -o {output_binary_file} {input_go_file} 
-            """, cwd=base_folder)
+            """, cwd=base_folder, timeout=999999)
         else:
-            terminal.run(f"""
+            result = terminal.run_command(f"""
             export GO111MODULE=on
             go build -o {output_binary_file} {input_go_file} 
-            """, cwd=base_folder)
+            """, cwd=base_folder, timeout=999999)
+        result = result.replace("go get ", "hero add ")
+        print(result)
 
         return output_binary_file
 

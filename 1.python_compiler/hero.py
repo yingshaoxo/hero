@@ -60,6 +60,9 @@ class Hero():
         if file == None and self.has_package_json_file:
             file = self.package_object.get("main")
             output_folder = self.output_golang_folder
+        elif file != None and self.has_package_json_file:
+            print(f"Sorry, you should use `hero run`")
+            return
 
         if file == None:
             print(f"""Sorry, package.json doesn't have an entry point setting, it should have a pair like {"main": "main.hero"}""")
@@ -120,6 +123,9 @@ class Hero():
             output_folder = self.output_golang_folder
             output = self.binary_output_folder
             build_based_on_package_json = True
+        elif file != None and self.has_package_json_file:
+            print(f"Sorry, you should use `hero compile`")
+            return
 
         disk.create_a_folder(output_folder)
 
