@@ -1,0 +1,35 @@
+{
+    "name": "hero-syntax-highlighting",
+    "displayName": "hero_syntax_highlighting",
+    "description": "This is a syntax highlighting extension made for hero programming language.",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.77.0"
+    },
+    "icon": "images/icon.png",
+    "publisher": "yingshaoxo",
+    "license": "MIT",
+    "homepage": "https://github.com/yingshaoxo/hero",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yingshaoxo/hero.git"
+    },
+    "categories": [
+        "Themes"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "hero",
+                "extensions": [".hero"]
+            }
+        ],
+        "grammars": [
+            {
+                "language": "hero",
+                "scopeName": "source.hero",
+                "path": "./syntaxes/go.hero.tmGrammar.json"
+            }
+        ]
+    }
+}
