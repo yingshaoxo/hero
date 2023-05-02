@@ -1,0 +1,51 @@
+import (
+    "io"
+    "net"
+    "net/http"
+    "net/url"
+    "context"
+)
+
+string http_join_path(string path1, string path2) {
+    s, err := url.JoinPath(path1, path2)
+    if err == nil {
+        return s
+    } else {
+        return path1 + path2
+    }
+}
+
+void home_handler(http.ResponseWriter w, *http.Request r) {
+    println("got / request\n")
+    io.WriteString(w, "This is your website!\n")
+}
+
+void hello_handler(http.ResponseWriter w, *http.Request r) {
+    println("got /hello request\n")
+    io.WriteString(w, "Hello, HTTP!\n")
+}
+
+void author_handler(http.ResponseWriter w, *http.Request r) {
+    println("got /author request\n")
+    io.WriteString(w, "yingshaoxo\n")
+}
+
+export void run(string port, string url_prefix) {
+    mux1 := http.NewServeMux()
+
+    mux1.HandleFunc(http_join_path(url_prefix, "/"), home_handler)
+    mux1.HandleFunc(http_join_path(url_prefix, "/hello"), hello_handler)
+    mux1.HandleFunc(http_join_path(url_prefix, "/author"), author_handler)
+
+    ctx, _ := context.WithCancel(context.Background())
+    serverOne := &http.Server{
+        Addr:    ":" + port,
+        Handler: mux1,
+        BaseContext: func(l net.Listener) context.Context {
+            return ctx
+        },
+    }
+
+    println("\n\nYour website is on: http://localhost:" + port + url_prefix)
+    serverOne.ListenAndServe()
+}

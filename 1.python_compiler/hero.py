@@ -4,18 +4,21 @@
 # Run this to generate bash auto complete script: Tools -- --completion
 
 import json
-from platform import architecture
 import re
+import os
+import platform
 
 from auto_everything.python import Python #type: ignore
 from auto_everything.disk import Disk #type: ignore
 from auto_everything.io import IO #type: ignore
 from auto_everything.terminal import Terminal, Terminal_User_Interface #type: ignore
+from auto_everything.string import String #type: ignore
 python = Python()
 disk = Disk()
 io_ = IO()
 terminal = Terminal()
 terminal_user_interface = Terminal_User_Interface()
+string_tool = String()
 
 import hero_to_golang
 
@@ -33,11 +36,21 @@ class Hero():
         self.has_package_json_file = disk.exists(self.package_json_file_path)
         if (self.has_package_json_file):
             self.package_object = json.loads(io_.read(self.package_json_file_path))
+            self.go_package_name = self.package_object.get("go_package_name")
+            if self.go_package_name == None:
+                self.go_package_name = ""
 
         self.output_golang_folder = disk.join_paths(self.current_working_directory, "build", "golang")
         self.output_golang_mod_path = disk.join_paths(self.output_golang_folder, "go.mod")
 
         self.binary_output_folder = disk.join_paths(self.current_working_directory, "build", "binary")
+
+        self.git_user_email = terminal.run_command("git config user.email").strip().split('\n')[0]
+        self.git_user_name = terminal.run_command("git config user.name").strip().split('\n')[0].lower()
+        if self.git_user_name == "":
+            self.git_user_name = string_tool.remove_all_special_characters_from_a_string(os.getlogin(), white_list_characters='_').strip().lower()
+            if self.git_user_name == "":
+                self.git_user_name = platform.system().lower().strip()
 
     def hi(self):
         print("""
@@ -57,21 +70,29 @@ class Hero():
         """
         output_folder = disk.get_a_temp_folder_path()
 
+        build_based_on_package_json = False
         if file == None and self.has_package_json_file:
             file = self.package_object.get("main")
             output_folder = self.output_golang_folder
+            build_based_on_package_json = True
         elif file != None and self.has_package_json_file:
             print(f"Sorry, you should use `hero run`")
-            return
+            exit()
+        elif file == None and not self.has_package_json_file:
+            print(f"Sorry, you should use `hero run xx.hero`")
+            exit()
 
         if file == None:
             print(f"""Sorry, package.json doesn't have an entry point setting, it should have a pair like {"main": "main.hero"}""")
-            return
+            exit()
 
         file = disk.get_absolute_path(path=file)
         directory_path = disk.get_directory_path(path=file)
 
         disk.create_a_folder(output_folder)
+
+        if build_based_on_package_json == True:
+            self._prepare_golang_output_module()
 
         golang_file_path = self.hero_to_golang_compiler.compile_to_golang_file(input_base_folder=directory_path, input_file=file, output_folder=output_folder)
         binary_file_path = self.hero_to_golang_compiler.compile_to_binary_file(input_go_file=golang_file_path, output_binary_file=disk.get_a_temp_file_path("hero_run"))
@@ -148,6 +169,7 @@ class Hero():
             operation_system, architecture = None, None
 
         if build_based_on_package_json == True:
+            self._prepare_golang_output_module()
             if platform == None:
                 output_binary_file = disk.join_paths(output, f"{pure_name_of_file}.run")
             else:
@@ -178,6 +200,26 @@ class Hero():
             Programming language, like 'golang', 'typescript', 'python', 'cpp', 'dart', 'kotlin', 'C#', 'C++', 'rust'
         """
         pass
+
+    def _prepare_golang_output_module(self):
+        """
+        #todo: reduce unnessesary package online update by doing a check on package.json and go.mod, if they both have same dependencies, ignore the self.install() in this function
+        """
+        self.__init__()
+
+        disk.create_a_folder(self.output_golang_folder)
+        if self.go_package_name == "":
+            print("You have to run 'hero init' first")
+            exit()
+        terminal.run(f"""
+        go mod init {self.go_package_name}
+        """, cwd=self.output_golang_folder)
+
+        self.__init__()
+        self.add('github.com/yingshaoxo/gopython/built_in_functions')
+
+        self.__init__()
+        self.install()
 
     def init(self):
         """
@@ -212,6 +254,7 @@ class Hero():
                 "main": "main.hero",
                 "dependencies": {},
                 "dev_dependencies": {},
+                "go_package_name": "",
                 "go_dependencies": {},
                 "go_dev_dependencies": {}
             }
@@ -222,12 +265,24 @@ class Hero():
 
             # handle project name
             default_project_name = disk.get_directory_name(self.current_working_directory)
+            print(default_project_name)
             def assign_name(text: str):
                 package_object["name"] = text
             terminal_user_interface.input_box(
-                f"Please give me a project name: (use '{default_project_name}' by default)___", 
+                f"Please give me a project name: (default '{default_project_name}')___", 
                 default_value=default_project_name,
                 handle_function=assign_name
+            )
+
+            # handle go_package name
+            project_name = package_object["name"]
+            default_go_package_name = f"github.com/{self.git_user_name}/{project_name}"
+            def assign_go_package_name(text: str):
+                package_object["go_package_name"] = text
+            terminal_user_interface.input_box(
+                f"Please give me a go package name: (default '{default_go_package_name}')___", 
+                default_value=default_go_package_name,
+                handle_function=assign_go_package_name
             )
 
             # handle project version
@@ -235,22 +290,96 @@ class Hero():
             def assign_version(text: str):
                 package_object["version"] = text
             terminal_user_interface.input_box(
-                f"Please give me a project version: (use '{default_project_version}' by default)___", 
+                f"Please give me a project version: (default '{default_project_version}')___", 
                 default_value=default_project_version,
                 handle_function=assign_version
             )
 
             # handle author name
-            default_author = ""
+            default_author = self.git_user_email
+            if "@" not in default_author:
+                default_author = "" 
             def assign_author(text: str):
                 package_object["author"] = text
             terminal_user_interface.input_box(
-                f"Please give me your name: (It's better be an email address)___", 
+                f"Please give me your name: (default '{default_author}')___", 
                 default_value=default_author,
                 handle_function=assign_author
             )
 
             io_.write(self.package_json_file_path, json.dumps(package_object, indent=4))
+
+            main_hero_template = r"""
+import "github.com/yingshaoxo/gopython/built_in_functions" as gopython
+import "./a_module.hero" as a_module
+
+void main() {
+	gopython.print("Hello, world!")
+
+    a_module.run("2333", "/")
+}
+            """.strip()
+            main_hero_file_path = disk.join_paths(self.current_working_directory, "main.hero")
+            io_.write(main_hero_file_path, main_hero_template)
+
+            a_module_template = r"""
+import (
+    "io"
+    "net"
+    "net/http"
+    "net/url"
+    "context"
+)
+
+string http_join_path(string path1, string path2) {
+    s, err := url.JoinPath(path1, path2)
+    if err == nil {
+        return s
+    } else {
+        return path1 + path2
+    }
+}
+
+void home_handler(http.ResponseWriter w, *http.Request r) {
+    println("got / request\n")
+    io.WriteString(w, "This is your website!\n")
+}
+
+void hello_handler(http.ResponseWriter w, *http.Request r) {
+    println("got /hello request\n")
+    io.WriteString(w, "Hello, HTTP!\n")
+}
+
+void author_handler(http.ResponseWriter w, *http.Request r) {
+    println("got /author request\n")
+    io.WriteString(w, "yingshaoxo\n")
+}
+
+export void run(string port, string url_prefix) {
+    mux1 := http.NewServeMux()
+
+    mux1.HandleFunc(http_join_path(url_prefix, "/"), home_handler)
+    mux1.HandleFunc(http_join_path(url_prefix, "/hello"), hello_handler)
+    mux1.HandleFunc(http_join_path(url_prefix, "/author"), author_handler)
+
+    ctx, _ := context.WithCancel(context.Background())
+    serverOne := &http.Server{
+        Addr:    ":" + port,
+        Handler: mux1,
+        BaseContext: func(l net.Listener) context.Context {
+            return ctx
+        },
+    }
+
+    println("\n\nYour website is on: http://localhost:" + port + url_prefix)
+    serverOne.ListenAndServe()
+}
+
+            """.strip()
+            a_module_file_path = disk.join_paths(self.current_working_directory, "a_module.hero")
+            io_.write(a_module_file_path, a_module_template)
+
+            self._prepare_golang_output_module()
 
     def install(self):
         """

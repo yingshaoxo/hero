@@ -1,0 +1,8 @@
+import "github.com/yingshaoxo/gopython/built_in_functions" as gopython
+import "./a_module.hero" as a_module
+
+void main() {
+	gopython.print("Hello, world!")
+
+    a_module.run("2333", "/")
+}

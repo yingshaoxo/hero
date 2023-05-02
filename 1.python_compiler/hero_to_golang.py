@@ -1,15 +1,56 @@
 import re
 from typing import Any, Tuple
+import json
+import platform
+import os
 
 from auto_everything.disk import Disk #type: ignore
 from auto_everything.io import IO #type: ignore
 from auto_everything.terminal import Terminal #type: ignore
+from auto_everything.string import String #type: ignore
 disk = Disk()
 io_ = IO()
 terminal = Terminal()
+string_tool = String()
+
+
+def my_capitalize_function(text: str) -> str:
+    if len(text) == 0:
+        return text
+    return text[0].capitalize() + text[1:]
 
 
 class HeroToGolangCompiler:
+    def __init__(self):
+        self.keywords_list = [
+            'export',
+            'return',
+            'if',
+            'package'
+        ]
+
+        self.current_working_directory = disk.get_current_working_directory()
+
+        self.package_json_file_path = disk.join_paths(self.current_working_directory, "package.json")
+        self.has_package_json_file = disk.exists(self.package_json_file_path)
+        if (self.has_package_json_file):
+            self.package_object = json.loads(io_.read(self.package_json_file_path))
+            self.go_package_name = self.package_object.get("go_package_name")
+            if self.go_package_name == None:
+                self.go_package_name = ""
+
+        self.output_golang_folder = disk.join_paths(self.current_working_directory, "build", "golang")
+        self.output_golang_mod_path = disk.join_paths(self.output_golang_folder, "go.mod")
+
+        self.binary_output_folder = disk.join_paths(self.current_working_directory, "build", "binary")
+
+        self.git_user_email = terminal.run_command("git config user.email").strip().split('\n')[0]
+        self.git_user_name: str = terminal.run_command("git config user.name").strip().split('\n')[0].lower()
+        if self.git_user_name == "":
+            self.git_user_name = string_tool.remove_all_special_characters_from_a_string(os.getlogin(), white_list_characters='_').strip().lower()
+            if self.git_user_name == "":
+                self.git_user_name = platform.system().lower().strip()
+
     def replace_hextag_to_double_slash(self, old_text: str) -> str:
         def do_a_replace(match_obj: Any):
             if match_obj.group() is not None:
@@ -66,14 +107,14 @@ class HeroToGolangCompiler:
 
                 return golang_input_arguments_template
 
-        return re.sub(r"(?P<variable_type>[\w\[\]\.]+) (?P<variable_name>\w+)", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
+        return re.sub(r"(?P<variable_type>[\w\[\]\.\*]+) (?P<variable_name>\w+)", try_to_do_a_replace, old_text, flags=re.MULTILINE) #type: ignore
 
     def convert_hero_package_function_access_method_to_golang_package_function_access_method(self, old_text: str, package_name_list: list[str]) -> str:
         def part2_replacement(text: str) -> str:
             def re_part2_replacement(match_obj: re.Match): #type: ignore
                 if match_obj.group() is not None:
                     function_name = match_obj.group('function_name') #type: ignore
-                    return f".{function_name.capitalize()}(" #type: ignore
+                    return f".{my_capitalize_function(function_name)}(" #type: ignore
             text = re.sub(f"\.(?P<function_name>\w+)\(", re_part2_replacement, text, flags=re.MULTILINE) #type: ignore
             return text #type: ignore
 
@@ -97,7 +138,7 @@ class HeroToGolangCompiler:
                 function_return_type = str(match_obj.group('function_return_type')) #type: ignore
 
                 if should_i_export_it == True:
-                    function_name = function_name.capitalize()
+                    function_name = my_capitalize_function(function_name)
 
                 function_input_arguments = self.convert_hero_function_input_arguments_into_golang_function_input_arguments(function_input_arguments)
 
@@ -154,7 +195,7 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                 function_return_type = str(match_obj.group('function_return_type')) #type: ignore
 
                 if should_i_export_it == True:
-                    function_name = function_name.capitalize()
+                    function_name = my_capitalize_function(function_name)
 
                 function_input_arguments = self.convert_hero_function_input_arguments_into_golang_function_input_arguments(function_input_arguments)
 
@@ -199,7 +240,10 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                 indent = match_obj.group('indent')
                 variable_type = match_obj.group('variable_type')
                 variable_name = match_obj.group('variable_name')
-                return f'{indent} var {variable_name} {variable_type} ='
+                if variable_type in self.keywords_list:
+                    return f'{indent}{variable_type} {variable_name} ='
+                else:
+                    return f'{indent}var {variable_name} {variable_type} ='
         result = re.sub(r"^(?P<indent>[ \t]*)(?P<variable_type>[\w\[\]\.]+) (?P<variable_name>\w+) =", try_to_do_a_replace_1, old_text, flags=re.MULTILINE) #type: ignore
 
         def try_to_do_a_replace_2(match_obj: Any):
@@ -207,12 +251,19 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
                 indent = match_obj.group('indent')
                 variable_type = match_obj.group('variable_type')
                 variable_name = match_obj.group('variable_name')
-                return f'{indent} var {variable_name} {variable_type}'
+                if variable_type in self.keywords_list:
+                    return f'{indent}{variable_type} {variable_name}'
+                else:
+                    return f'{indent}var {variable_name} {variable_type}'
         result = re.sub(r"^(?P<indent>[ \t]*)(?P<variable_type>[\w\[\]\.]+) (?P<variable_name>\w+)$", try_to_do_a_replace_2, result, flags=re.MULTILINE) #type: ignore
 
         return result #type: ignore
     
     def handle_import_statement(self, base_dir: str, old_text: str, output_folder: str, parent_package_path: str | None = None) -> Tuple[str, list[str]]:
+        if parent_package_path == None or parent_package_path == "":
+            print("If you want to use `import` feature, you have to use `hero init` to create a project first.")
+            exit()
+
         package_name_list: list[str] = []
 
         def try_to_do_a_replace(match_obj: Any):
@@ -255,15 +306,16 @@ func {function_name}({function_input_arguments}) {function_return_type} {{
         output_pure_file_name, _ = disk.get_stem_and_suffix_of_a_file(input_file)
         output_file_path = disk.concatenate_paths(output_folder, output_pure_file_name+".go")
 
-        if parent_package_path == None:
-            # create a package
+        if self.has_package_json_file == True:
+            if parent_package_path == None:
+                parent_package_path = f"{self.go_package_name}"
+        else:
             package_hash = disk.get_hash_of_a_path(disk.get_absolute_path(input_file))[:15]
             package_path = f"{package_hash}/{output_pure_file_name}"
             go_mod_path = disk.join_paths(output_folder, "go.mod")
             if not disk.exists(go_mod_path):
                 terminal.run(f"""
                 export GO111MODULE=on
-                #rm go.mod
                 go mod init {package_path}
                 """, cwd=output_folder)
             parent_package_path = package_path

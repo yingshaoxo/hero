@@ -1,15 +1,14 @@
 {
-    "name": "2.handle_json",
+    "name": "3.http_server",
     "version": "0.0.0",
     "author": "yingshaoxo@gmail.com",
     "scripts": {},
     "main": "main.hero",
     "dependencies": {},
     "dev_dependencies": {},
-    "go_package_name": "github.com/yingshaoxo/2.handle_json",
+    "go_package_name": "github.com/yingshaoxo/3.http_server",
     "go_dependencies": {
-        "github.com/yingshaoxo/gopython/built_in_functions": "",
-        "github.com/google/uuid": ""
+        "github.com/yingshaoxo/gopython/built_in_functions": ""
     },
     "go_dev_dependencies": {}
 }
