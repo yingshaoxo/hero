@@ -1,0 +1,33 @@
+# hihihi
+/*
+    This was made by yingshaoxo
+*/
+
+
+
+
+import "./a_module.hero"
+import "./color.hero" as color_package
+
+int main() {
+    string a_statement = "Sky is "
+    a_statement = a_statement + color_package.get_a_color()
+    print(a_statement)
+    print("\n\n")
+
+    a_module.print_something()
+    a_module.say_hi()
+
+    return 0;
+}
+
+
+
+
+"""
+#import "./a_module.cpp"
+
+void main() {
+    print("hello, yingshaoxo")
+}
+"""

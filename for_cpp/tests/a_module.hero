@@ -1,0 +1,41 @@
+string get_username() {
+    print("What's your name, dear? ___\n");
+
+    string username;
+    cin >> username;
+
+    return username;
+}
+
+export void say_hi() {
+    string name = get_username()
+    string text = "\n\nHi!" + name + "!\n"
+    print(text)
+}
+
+export void print_something() {
+    print("Hello World\n\n")
+}
+
+
+
+
+
+
+/*
+#include <cstdio>
+#include <iostream>
+string get_username() {
+    string username;
+    cout << "What's your name, dear? ___";
+    cin >> username;
+    return username;
+}
+void say_hi() {
+    auto name = get_username();
+    printf("Hi! " + name + "!");
+}
+void print_something() {
+    printf("Hello World");
+}
+*/
