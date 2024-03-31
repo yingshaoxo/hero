@@ -1,8 +1,10 @@
-f = open("README.md", "r")
-print(f.read())
-#f = open("test.txt", "w")
-#f.write("yingshaoxo is the best!\n\nyeah!")
-f.close()
+file_name = "./README.md"
+if exists(file_name):
+    f = open(file_name, "r")
+    print(f.read())
+    #f = open("test.txt", "w")
+    #f.write("yingshaoxo is the best!\n\nyeah!")
+    f.close()
 
 
 print("\n\n------\n\n")

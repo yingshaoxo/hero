@@ -14,6 +14,7 @@
 
 * run_command
 * run
+* exists
 * open
 * input
 * sleep

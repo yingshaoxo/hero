@@ -59,6 +59,18 @@ extern tp_obj tp_string_copy(TP, const char *s, int n);
 extern tp_obj tp_list(TP);
 extern tp_obj tp_copy(TP);
 
+tp_obj tp_exists_(TP) {
+	tp_obj argument1 = TP_OBJ();
+
+    FILE *file;
+    if (file = fopen(argument1.string.val, "r")) {
+        fclose(file);
+        return tp_number(1);
+    } else {
+        return tp_number(0);
+    }
+}
+
 tp_obj tp_input_(TP) {
 	tp_obj argument1 = TP_OBJ();
     printf("%s", argument1.string.val);

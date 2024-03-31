@@ -457,6 +457,7 @@ void tp_builtins(TP) {
     {"run_command",tp_run_command}, 
     {"run",tp_run_}, 
     {"open",tp_open}, 
+    {"exists",tp_exists_}, 
     {"sleep",tp_sleep_}, 
     {"input",tp_input_}, 
 
