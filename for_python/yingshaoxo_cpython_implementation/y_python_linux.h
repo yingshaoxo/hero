@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 /*
 Run a bash command and return the result as a string.
@@ -32,7 +33,7 @@ void ypython_run(const char *bash_command_line)
     _ypython_close_subprocess_pipe_stream(FileOpen);
 }
 
-void clear_screen() {
+void ypython_clear_screen() {
     /*
     ypython_run("clear");
     fflush(stdout);
@@ -71,4 +72,26 @@ void clear_screen() {
     return;
     */
 
+}
+
+bool ypython_disk_exists(char *path) {
+    struct stat temp_data;
+
+    int exists = stat(path, &temp_data);
+    if (exists == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool ypython_disk_is_folder(char *path) {
+    struct stat temp_data;
+
+    int exists = stat(path, &temp_data);
+    if (exists == 0 && S_ISDIR(temp_data.st_mode)) {
+        return true;
+    }
+
+    return false;
 }

@@ -80,7 +80,7 @@ char *_ypython_get_a_newline_terminated_string_of_finite_length_from_a_STREAM(ch
 }
 
 /*
-Return the EOF(end of file) indicator for STREAM.
+Return the EOF(end of file) indicator for STREAM. If the end, return 1, otherwise, 0.
 */
 int _ypython_return_end_of_file_indicator_for_a_STREAM(FILE *__stream)
 {
@@ -136,6 +136,33 @@ The terminating '\0' characters are not compared.
 */
 const char *_ypython_find_the_first_sub_string_in_a_string(const char *a_string, const char *sub_string) {
     return strstr(a_string, sub_string);
+}
+
+/*
+The fopen() method in C is used to open a file to perform various operations which include reading, writing, etc.
+The function is used to return a pointer to FILE if the execution succeeds else NULL is returned. 
+
+mode_of_operation: 
+    r: read
+    w: write
+    a: append data to the end of file
+    rb: read binary bytes stream
+    wb: write binary bytes stream
+*/
+FILE *_ypython_file_open(const char *file_name, const char *mode_of_operation) {
+    return fopen(file_name, mode_of_operation);
+}
+
+int _ypython_file_close(FILE *stream) {
+    return fclose(stream);
+}
+
+int _ypython_file_get_character(FILE *pointer) {
+    return fgetc(pointer);
+}
+
+int _ypython_file_put_character(int character, FILE *pointer) {
+    return fputc(character, pointer);
 }
 
 
@@ -330,9 +357,24 @@ void ypython_run(const char *bash_command_line)
 /*
 Python_like print function.
 */
-void ypython_print(const char *text)
+void ypython_print(char *text, ...)
 {
-    printf("%s\n", text);
+    va_list variable_pointer;
+    va_start(variable_pointer, text);
+
+    printf("%s ", text);
+
+    while (true) {
+        char* a_string = va_arg(variable_pointer, char *);
+        if (a_string == NULL) {
+            break;
+        }
+        printf("%s ", a_string);
+    }
+
+    printf("\n");
+ 
+    va_end(variable_pointer);
 }
 
 
@@ -1156,6 +1198,9 @@ Dict type
 //You can use 2 dimentional array, one to store the key, another to store the value, and two array uses same index and length.
 //Key will always be Type_Ypython_String type inside Type_Ypython_General
 */
+/*
+ * Need to convert this dict to hash_table based dict to increase dict look up speed
+ */
 typedef struct Type_Ypython_Dict Type_Ypython_Dict;
 struct Type_Ypython_Dict {
     bool is_none;
