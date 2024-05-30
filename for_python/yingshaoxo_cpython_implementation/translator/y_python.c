@@ -1,6 +1,11 @@
 #include "../y_python.h"
 #include "../y_python_linux.h"
 
+void process(Type_Ypython_String *text_code) {
+    //split into lines and execute
+    ypython_print(text_code->value);
+}
+
 int main(int argument_number, char **argument_list) {
     if (argument_number <= 1) {
         // work as an realtime intepreter console
@@ -57,7 +62,7 @@ int main(int argument_number, char **argument_list) {
                 Type_Ypython_String *new_character = Ypython_String(character_string);
                 file_content = file_content->function_add(file_content, new_character);
             }
-            _ypython_print_formated_string("%s\n", file_content->value);
+            process(file_content);
         }
         _ypython_file_close(a_file);
     }

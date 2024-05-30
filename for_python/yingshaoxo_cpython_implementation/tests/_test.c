@@ -255,4 +255,19 @@ int main()
 
     Type_Ypython_String *a_string_16 = Ypython_String("yingshaoxo2");
     ypython_print(a_string_16->function_substring(a_string_16, 0, 11)->value);
+
+    //////////////////////////////////////////////////////
+    
+    print_seperator("string split Test");
+
+    Type_Ypython_String *a_string_17 = Ypython_String("yingshaoxo is god");
+
+    Type_Ypython_List *a_list2 = ypython_string_type_function_split(a_string_17, Ypython_String(" "));
+    a_list2->function_start_iteration(a_list2);
+    while (a_list2->iteration_not_done) {
+        Type_Ypython_General *temp = a_list2->function_get_next_one(a_list2);
+        if (!temp->is_none) {
+            ypython_print(temp->string_->value);
+        }
+    }
 }

@@ -61,6 +61,13 @@ double _ypython_get_float_absolute_value(double __x) {
 }
 
 /*
+malloc() allocates the requested memory and returns a pointer to it.
+ */
+void *_ypython_memory_allocation_for_data(size_t size) {
+    return malloc(size);
+}
+
+/*
 The C library function `void *realloc(void *ptr, size_t size)` attempts to resize the memory block pointed to by `ptr` that was previously allocated with a call to `malloc` or `calloc`.
 */
 void *_ypython_resize_memory_block_for_a_pointer(void *__ptr, size_t __size)
@@ -268,6 +275,33 @@ const char *ypython_string_strip(char *s)
     return (const char *)_ypython_string_right_strip(_ypython_string_left_strip(s));
 }
 
+/*
+copy char* string
+*/
+char *ypython_string_copy(char *source_string)
+{
+    size_t string_length = 0;
+    while (true) {
+        if (source_string[string_length] == '\0') {
+            string_length += 1;
+            break;
+        }
+        string_length += 1;
+    }
+
+    char *new_string = _ypython_memory_allocation_for_data(sizeof(char) * string_length);
+    size_t index = 0;
+    while (true) {
+        if (index >= string_length) {
+            break;
+        }
+        new_string[index] = source_string[index];
+        index += 1;
+    }
+
+    return new_string;
+}
+
 char *_ypython_get_infinate_length_text_line(FILE *f)
 {
     size_t size = 0;
@@ -357,14 +391,22 @@ void ypython_run(const char *bash_command_line)
 /*
 Python_like print function.
 */
-void ypython_print(char *text, ...)
+void ypython_print(const char *text)
 {
+
+    printf("%s\n", text);
+}
+/*
+void ypython_print(const char *text, ...)
+{
+    // this should work, but not work
+    
     va_list variable_pointer;
     va_start(variable_pointer, text);
 
     printf("%s ", text);
 
-    while (true) {
+    for (int i=0; i < 2; i++) {
         char* a_string = va_arg(variable_pointer, char *);
         if (a_string == NULL) {
             break;
@@ -373,10 +415,18 @@ void ypython_print(char *text, ...)
     }
 
     printf("\n");
- 
+
     va_end(variable_pointer);
 }
+*/
 
+/*
+Python_like exit function.
+*/
+void ypython_exit()
+{
+    exit(0);
+}
 
 /*
 ##################################################
@@ -397,6 +447,7 @@ typedef struct Type_Ypython_General Type_Ypython_General;
 typedef struct _Ypython_Linked_List_Node _Ypython_Linked_List_Node;
 typedef struct Type_Ypython_List Type_Ypython_List;
 typedef struct Type_Ypython_Dict Type_Ypython_Dict;
+
 
 Type_Ypython_None *Ypython_None();
 Type_Ypython_Bool *Ypython_Bool(bool value);
@@ -492,8 +543,8 @@ bool Type_Ypython_String_is_equal(Type_Ypython_String *self, Type_Ypython_String
     }
 }
 
-//Type_Ypython_List *Type_Ypython_String_split(Type_Ypython_String *self, Type_Ypython_String *seperator_string) {
-    /*
+/*
+Type_Ypython_List *Type_Ypython_String_split(Type_Ypython_String *self, Type_Ypython_String *seperator_string) {
     Type_Ypython_List *result_list = Ypython_List();
 
     char *token;
@@ -502,8 +553,7 @@ bool Type_Ypython_String_is_equal(Type_Ypython_String *self, Type_Ypython_String
 
     token = strtok(str, sep);
     while(token != NULL) {
-        Type_Ypython_String *new_string = Ypython_String("");
-        new_string->value = strdup(token);
+        Type_Ypython_String *new_string = Ypython_String(strdup(token));
 
         Type_Ypython_General *a_general_variable = Ypython_General();
         a_general_variable->string_ = new_string;
@@ -514,9 +564,8 @@ bool Type_Ypython_String_is_equal(Type_Ypython_String *self, Type_Ypython_String
     }
 
     return result_list;
-    */
-    //return NULL;
-//}
+}
+*/
 
 /*
 Type_Ypython_String *Type_Ypython_String_join(Type_Ypython_String *self, Type_Ypython_List *string_list, Type_Ypython_String *seperator_string) {
@@ -601,8 +650,8 @@ Type_Ypython_String *Ypython_String(char *value) {
     new_string_value->is_none = false;
     new_string_value->type = (char *)"string";
 
-    new_string_value->value = value;
     new_string_value->length = strlen(value);
+    new_string_value->value = ypython_string_copy(value);
 
     new_string_value->function_add = &Type_Ypython_String_add;
     new_string_value->function_is_equal = &Type_Ypython_String_is_equal;
@@ -1410,3 +1459,52 @@ Type_Ypython_List *Ypython_List() {
 }
 */
 
+
+// string functions
+Type_Ypython_List *ypython_string_type_function_split(Type_Ypython_String *self, Type_Ypython_String *seperator_string) {
+    Type_Ypython_List *result_list = Ypython_List();
+
+    char *str = ypython_string_copy(self->value);
+    const char *delimiter = ypython_string_copy(seperator_string->value);
+
+    int str_len = strlen(str);
+    int delim_len = strlen(delimiter);
+    
+    char* temp_string = _ypython_memory_allocation_for_data((sizeof(char) * str_len) + 1);
+    int temp_string_index = 0;
+    for (int i = 0; i < str_len; i++) {
+        int match = 1;
+        for (int j = 0; j < delim_len; j++) {
+            if (str[i + j] != delimiter[j]) {
+                match = 0;
+                break;
+            }
+        }
+        
+        if (match) {
+            temp_string[temp_string_index] = '\0';
+
+            Type_Ypython_String *new_string = Ypython_String(temp_string);
+            Type_Ypython_General *a_general_variable = Ypython_General();
+            a_general_variable->string_ = new_string;
+            result_list->function_append(result_list, a_general_variable);
+
+            temp_string_index = 0;
+            i += delim_len - 1;
+        } else {
+            temp_string[temp_string_index] = str[i];
+            temp_string_index += 1;
+        }
+    }
+
+    if (temp_string_index != 0) {
+        temp_string[temp_string_index] = '\0';
+
+        Type_Ypython_String *new_string = Ypython_String(temp_string);
+        Type_Ypython_General *a_general_variable = Ypython_General();
+        a_general_variable->string_ = new_string;
+        result_list->function_append(result_list, a_general_variable);
+    }
+    
+    return result_list;
+}
