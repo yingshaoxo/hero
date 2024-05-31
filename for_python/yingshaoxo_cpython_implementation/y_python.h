@@ -481,8 +481,11 @@ Type_Ypython_None *Ypython_None() {
     return new_none_value;
 }
 
+
 /*
 String type
+
+Tip: You can use wchar to replace char* to support utf-8 characters.
 */
 typedef struct Type_Ypython_String Type_Ypython_String;
 struct Type_Ypython_String {
@@ -665,6 +668,7 @@ Type_Ypython_String *Ypython_String(char *value) {
     return new_string_value;
 }
 
+
 /*
 Bool type
 */
@@ -686,6 +690,7 @@ Type_Ypython_Bool *Ypython_Bool(bool value) {
 
     return new_bool_value;
 }
+
 
 /*
 Int type
@@ -745,6 +750,7 @@ Type_Ypython_Int *Ypython_Int(long long value) {
     return new_int_value;
 }
 
+
 /*
 Float type
 */
@@ -803,11 +809,13 @@ Type_Ypython_Float *Ypython_Float(long double value) {
     return new_float_value;
 }
 
+
 /*
 Forward declaration for: List, Dict
 */
 typedef struct Type_Ypython_List Type_Ypython_List;
 typedef struct Type_Ypython_Dict Type_Ypython_Dict;
+
 
 /*
 General type
@@ -915,12 +923,15 @@ Type_Ypython_General *Ypython_General() {
     return new_value;
 }
 
+
 /*
 List type
 
 A good list data type has to have:
 1. infinity list size increasing in real time
 2. automatically garbage collection
+
+Tip: If you know the length of that list when you creat it, you should use normal c_list. Only when you change list length later, you use linked list.
 */
 typedef struct _Ypython_Linked_List_Node _Ypython_Linked_List_Node;
 struct _Ypython_Linked_List_Node {
@@ -1243,93 +1254,6 @@ Type_Ypython_List *Ypython_List() {
 
 
 /*
-Dict type
-//You can use 2 dimentional array, one to store the key, another to store the value, and two array uses same index and length.
-//Key will always be Type_Ypython_String type inside Type_Ypython_General
-*/
-/*
- * Need to convert this dict to hash_table based dict to increase dict look up speed
- */
-typedef struct Type_Ypython_Dict Type_Ypython_Dict;
-struct Type_Ypython_Dict {
-    bool is_none;
-    char *type;
-
-    Type_Ypython_List* keys;
-    Type_Ypython_List* values;
-
-    void (*function_set)(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value);
-    Type_Ypython_General *(*function_get)(Type_Ypython_Dict *self, Type_Ypython_String *a_key);
-};
-
-void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value) {
-    if (self->is_none) {
-        return;
-    } 
-
-    if (self->keys == NULL || self->values == NULL) {
-        return;
-    }
-
-    Type_Ypython_General *the_key = Ypython_General();
-    the_key->string_ = a_key;
-
-    Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
-    if (index->is_none) {
-        // we don't have this key in this dict, add a new one
-        self->keys->function_append(self->keys, the_key);
-        self->values->function_append(self->values, a_value);
-    } else {
-        // we have this key in this dict, update old one
-        self->values->function_set(self->values, index->value, a_value);
-    }
-}
-
-Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypython_String *a_key) {
-    Type_Ypython_General *result = Ypython_General();
-
-    if (self->is_none) {
-        result->is_none = true;
-        return result;
-    } 
-
-    if (self->keys == NULL || self->values == NULL) {
-        result->is_none = true;
-        return result;
-    }
-
-    Type_Ypython_General *the_key = Ypython_General();
-    the_key->string_ = a_key;
-
-    Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
-    if (index->is_none) {
-        // we don't have this key in this dict, return none
-        result->is_none = true;
-        return result;
-    } else {
-        // we have this key in this dict, return the value
-        return self->values->function_get(self->values, index->value);
-    }
-}
-
-Type_Ypython_Dict *Ypython_Dict() {
-    Type_Ypython_Dict *new_value;
-    new_value = (Type_Ypython_Dict *)malloc(sizeof(Type_Ypython_Dict));
-
-    new_value->is_none = false;
-    new_value -> type = (char *)"dict";
-
-    new_value->keys = Ypython_List();
-    new_value->values = Ypython_List();
-
-    new_value->function_set = &Type_Ypython_Dict_set;
-    new_value->function_get = &Type_Ypython_Dict_get;
-
-    return new_value;
-}
-
-
-/*
 Old non_linked_list List type
 //https://dev.to/bekhruzniyazov/creating-a-python-like-list-in-c-4ebg
 
@@ -1458,6 +1382,93 @@ Type_Ypython_List *Ypython_List() {
     return new_list_value;
 }
 */
+
+
+/*
+Dict type
+//You can use 2 dimentional array, one to store the key, another to store the value, and two array uses same index and length.
+//Key will always be Type_Ypython_String type inside Type_Ypython_General
+*/
+/*
+ * Need to convert this dict to hash_table based dict to increase dict look up speed
+ */
+typedef struct Type_Ypython_Dict Type_Ypython_Dict;
+struct Type_Ypython_Dict {
+    bool is_none;
+    char *type;
+
+    Type_Ypython_List* keys;
+    Type_Ypython_List* values;
+
+    void (*function_set)(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value);
+    Type_Ypython_General *(*function_get)(Type_Ypython_Dict *self, Type_Ypython_String *a_key);
+};
+
+void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value) {
+    if (self->is_none) {
+        return;
+    } 
+
+    if (self->keys == NULL || self->values == NULL) {
+        return;
+    }
+
+    Type_Ypython_General *the_key = Ypython_General();
+    the_key->string_ = a_key;
+
+    Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
+    if (index->is_none) {
+        // we don't have this key in this dict, add a new one
+        self->keys->function_append(self->keys, the_key);
+        self->values->function_append(self->values, a_value);
+    } else {
+        // we have this key in this dict, update old one
+        self->values->function_set(self->values, index->value, a_value);
+    }
+}
+
+Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypython_String *a_key) {
+    Type_Ypython_General *result = Ypython_General();
+
+    if (self->is_none) {
+        result->is_none = true;
+        return result;
+    } 
+
+    if (self->keys == NULL || self->values == NULL) {
+        result->is_none = true;
+        return result;
+    }
+
+    Type_Ypython_General *the_key = Ypython_General();
+    the_key->string_ = a_key;
+
+    Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
+    if (index->is_none) {
+        // we don't have this key in this dict, return none
+        result->is_none = true;
+        return result;
+    } else {
+        // we have this key in this dict, return the value
+        return self->values->function_get(self->values, index->value);
+    }
+}
+
+Type_Ypython_Dict *Ypython_Dict() {
+    Type_Ypython_Dict *new_value;
+    new_value = (Type_Ypython_Dict *)malloc(sizeof(Type_Ypython_Dict));
+
+    new_value->is_none = false;
+    new_value -> type = (char *)"dict";
+
+    new_value->keys = Ypython_List();
+    new_value->values = Ypython_List();
+
+    new_value->function_set = &Type_Ypython_Dict_set;
+    new_value->function_get = &Type_Ypython_Dict_get;
+
+    return new_value;
+}
 
 
 // string functions
