@@ -4,6 +4,8 @@
 ./compile.sh
 ```
 
+> If there has no 'bc.c', you will have to run "python2 setup.py tinypy" to generate that file.
+
 ## How to test it?
 
 ```
