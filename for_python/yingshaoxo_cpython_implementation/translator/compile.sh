@@ -1,6 +1,7 @@
 # sudo apt install musl-tools
 
 c_compiler=$(which musl-gcc)
+#c_compiler=$(which gcc)
 
 mkdir -p dist/
 rm -fr dist/*

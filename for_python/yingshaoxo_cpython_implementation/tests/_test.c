@@ -200,12 +200,15 @@ int main()
     a_dict->function_set(a_dict, the_key_8, general_variable_9);
 
     a_dict->keys->function_start_iteration(a_dict->keys);
+    ypython_print("dict loop start----\n");
     while (a_dict->keys->iteration_not_done) {
         Type_Ypython_General *temp = a_dict->keys->function_get_next_one(a_dict->keys);
         if (!temp->is_none) {
             ypython_print(temp->string_->value);
+            ypython_print(a_dict->function_get(a_dict, temp->string_)->string_->value);
         }
     }
+    ypython_print("dict loop end----\n");
 
     ypython_print("for sublist: ");
 
@@ -234,8 +237,8 @@ int main()
     
     print_seperator("strip Test");
 
-    Type_Ypython_String *a_string_12 = Ypython_String("yingshaoxo2");
-    Type_Ypython_String *a_string_13 = Ypython_String("2y");
+    Type_Ypython_String *a_string_12 = Ypython_String("    yingshaoxo2  ");
+    Type_Ypython_String *a_string_13 = Ypython_String(" 2y");
     ypython_print(a_string_12->function_strip(a_string_12, a_string_13)->value);
 
     //////////////////////////////////////////////////////
@@ -270,4 +273,13 @@ int main()
             ypython_print(temp->string_->value);
         }
     }
+
+    //////////////////////////////////////////////////////
+    
+    print_seperator("create general variable from a specific variable Test");
+
+    Type_Ypython_String *a_string_18 = Ypython_String("yingshaoxo is best");
+
+    Type_Ypython_General *a_general_variable_1 = ypython_create_a_general_variable(a_string_18);
+    ypython_print(a_general_variable_1->string_->value);
 }

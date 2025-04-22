@@ -448,7 +448,6 @@ typedef struct _Ypython_Linked_List_Node _Ypython_Linked_List_Node;
 typedef struct Type_Ypython_List Type_Ypython_List;
 typedef struct Type_Ypython_Dict Type_Ypython_Dict;
 
-
 Type_Ypython_None *Ypython_None();
 Type_Ypython_Bool *Ypython_Bool(bool value);
 Type_Ypython_String *Ypython_String(char *value);
@@ -458,6 +457,7 @@ Type_Ypython_General *Ypython_General();
 Type_Ypython_List *Ypython_List();
 Type_Ypython_Dict *Ypython_Dict();
 
+Type_Ypython_General *_Ypython_copy_general_variable(Type_Ypython_General *value);
 
 /*
 None type
@@ -911,6 +911,7 @@ Type_Ypython_General *Ypython_General() {
     new_value->is_none = false;
     new_value -> type = (char *)"general";
 
+    // todo: may find a way to create a Ypython_General(variable) automatically from self->type
     new_value->bool_ = NULL;
     new_value->float_ = NULL;
     new_value->int_ = NULL;
@@ -976,6 +977,7 @@ void Type_Ypython_List_append(Type_Ypython_List *self, Type_Ypython_General *an_
         return;
     }
 
+    // todo: need to copy value to prevent value change outside, it is a complex c memory management problem
     _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
 
     if (self->head == NULL) {
@@ -1272,6 +1274,8 @@ struct Type_Ypython_List {
 
     Type_Ypython_List *(*function_append)(Type_Ypython_List *self, Type_Ypython_General *an_element);
     Type_Ypython_Int *(*function_index)(Type_Ypython_List *self, Type_Ypython_General *an_element);
+    Type_Ypython_General *(*function_get)(Type_Ypython_List *self, long long index);
+    void (*function_set)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
     Type_Ypython_List *(*function_delete)(Type_Ypython_List *self, long long index);
     Type_Ypython_List *(*function_insert)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
 };
@@ -1316,6 +1320,15 @@ Type_Ypython_Int *Type_Ypython_List_index(Type_Ypython_List *self, Type_Ypython_
 
     index->is_none = true;
     return index;
+}
+
+Type_Ypython_General *Type_Ypython_List(Type_Ypython_List *self, long long index) {
+    return self->value[index];
+}
+
+void Type_Ypython_List(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
+    self->value[index] = an_element;
+    return;
 }
 
 Type_Ypython_List *Type_Ypython_List_delete(Type_Ypython_List *self, long long index) {
@@ -1376,6 +1389,8 @@ Type_Ypython_List *Ypython_List() {
 
     new_list_value->function_append = &Type_Ypython_List_append;
     new_list_value->function_index = &Type_Ypython_List_index;
+    new_list_value->function_get = &Type_Ypython_List_get;
+    new_list_value->function_set = &Type_Ypython_List_set;
     new_list_value->function_delete = &Type_Ypython_List_delete;
     new_list_value->function_insert = &Type_Ypython_List_insert;
 
@@ -1414,9 +1429,15 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
     }
 
     Type_Ypython_General *the_key = Ypython_General();
-    the_key->string_ = a_key;
+    the_key->string_ = Ypython_String(a_key->value);
+
+    Type_Ypython_General *value_copy = _Ypython_copy_general_variable(a_value);
 
     Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
+
+    /*
+    // yingshaoxo: I prefer this method because it is simple, but it has bug, the bug may related to c itself, not my design
+    
     if (index->is_none) {
         // we don't have this key in this dict, add a new one
         self->keys->function_append(self->keys, the_key);
@@ -1425,6 +1446,37 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
         // we have this key in this dict, update old one
         self->values->function_set(self->values, index->value, a_value);
     }
+    */
+
+    if (index->is_none) {
+        // we don't have this key in this dict, add a new one
+        _Ypython_Linked_List_Node *new_key_node = _Ypython_create_list_Node(the_key);
+        if (self->keys->head == NULL) {
+            self->keys->head = new_key_node;
+            self->keys->tail = new_key_node;
+        } else {
+            self->keys->tail->next = new_key_node;
+            self->keys->tail = new_key_node;
+        }
+        self->keys->length++;
+
+        _Ypython_Linked_List_Node *new_value_node = _Ypython_create_list_Node(value_copy);
+        if (self->values->head == NULL) {
+            self->values->head = new_value_node;
+            self->values->tail = new_value_node;
+        } else {
+            self->values->tail->next = new_value_node;
+            self->values->tail = new_value_node;
+        }
+        self->values->length++;
+    } else {
+        // we have this key in this dict, update old one
+        _Ypython_Linked_List_Node *current = self->values->head;
+        for (long long i = 0; i < index->value; i++) {
+            current = current->next;
+        }
+        current->value = value_copy;
+    }   
 }
 
 Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypython_String *a_key) {
@@ -1470,6 +1522,118 @@ Type_Ypython_Dict *Ypython_Dict() {
     return new_value;
 }
 
+// function to create a new general variable by copying old one
+Type_Ypython_General *_Ypython_copy_general_variable(Type_Ypython_General *value) {
+    if (value == NULL) {
+        return NULL;
+    }
+
+    Type_Ypython_General *new_value = Ypython_General();
+    new_value->is_none = value->is_none;
+    
+    if (value->string_ != NULL) {
+        new_value->string_ = Ypython_String(value->string_->value);
+        new_value->string_->is_none = value->string_->is_none;
+        new_value->is_none = false;
+    } else if (value->bool_ != NULL) {
+        new_value->bool_ = Ypython_Bool(value->bool_->value);
+        new_value->bool_->is_none = value->bool_->is_none;
+        new_value->is_none = false;
+    } else if (value->int_ != NULL) {
+        new_value->int_ = Ypython_Int(value->int_->value);
+        new_value->int_->is_none = value->int_->is_none;
+        new_value->is_none = false;
+    } else if (value->float_ != NULL) {
+        new_value->float_ = Ypython_Float(value->float_->value);
+        new_value->float_->is_none = value->float_->is_none;
+        new_value->is_none = false;
+    } else if (value->list_ != NULL) {
+        // For lists, we need to create a deep copy
+        new_value->list_ = Ypython_List();
+        new_value->list_->is_none = value->list_->is_none;
+        new_value->is_none = false;
+        // Copy each element from the source list
+        value->list_->function_start_iteration(value->list_);
+        while (value->list_->iteration_not_done) {
+            Type_Ypython_General *element = value->list_->function_get_next_one(value->list_);
+            if (!element->is_none) {
+                new_value->list_->function_append(new_value->list_, element);
+            }
+        }
+    } else if (value->dict_ != NULL) {
+        // For dicts, we need to create a deep copy
+        new_value->dict_ = Ypython_Dict();
+        new_value->dict_->is_none = value->dict_->is_none;
+        new_value->is_none = false;
+        // Copy each key-value pair from the source dict
+        value->dict_->keys->function_start_iteration(value->dict_->keys);
+        while (value->dict_->keys->iteration_not_done) {
+            Type_Ypython_General *key = value->dict_->keys->function_get_next_one(value->dict_->keys);
+            if (!key->is_none) {
+                Type_Ypython_General *dict_value = value->dict_->function_get(value->dict_, key->string_);
+                if (!dict_value->is_none) {
+                    new_value->dict_->function_set(new_value->dict_, key->string_, dict_value);
+                }
+            }
+        }
+    }
+    
+    return new_value;
+}
+
+Type_Ypython_General *ypython_create_a_general_variable(void *value) {
+    Type_Ypython_General *new_value = (Type_Ypython_General *)malloc(sizeof(Type_Ypython_General));
+    if (value == NULL) {
+        return NULL;
+    }
+
+    new_value->is_none = false;
+    new_value -> type = (char *)"general";
+    new_value->bool_ = NULL;
+    new_value->float_ = NULL;
+    new_value->int_ = NULL;
+    new_value->string_ = NULL;
+    new_value->list_ = NULL;
+    new_value->dict_ = NULL;
+    new_value->function_is_equal = &Type_Ypython_General_is_equal;
+
+    if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
+        Type_Ypython_String *str = (Type_Ypython_String *)value;
+        new_value->string_ = Ypython_String(str->value);
+    } else if (strcmp(((Type_Ypython_Bool *)value)->type, "bool") == 0) {
+        Type_Ypython_Bool *bool_val = (Type_Ypython_Bool *)value;
+        new_value->bool_ = Ypython_Bool(bool_val->value);
+    } else if (strcmp(((Type_Ypython_Int *)value)->type, "int") == 0) {
+        Type_Ypython_Int *int_val = (Type_Ypython_Int *)value;
+        new_value->int_ = Ypython_Int(int_val->value);
+    } else if (strcmp(((Type_Ypython_Float *)value)->type, "float") == 0) {
+        Type_Ypython_Float *float_val = (Type_Ypython_Float *)value;
+        new_value->float_ = Ypython_Float(float_val->value);
+    } else if (strcmp(((Type_Ypython_List *)value)->type, "list") == 0) {
+        Type_Ypython_List *list_val = (Type_Ypython_List *)value;
+        new_value->list_ = Ypython_List();
+        for (size_t i = 0; i < list_val->length; i++) {
+            Type_Ypython_General *item = list_val->function_get(list_val, i);
+            item = _Ypython_copy_general_variable(item);
+            if (item != NULL) {
+                new_value->list_->function_append(new_value->list_, item);
+            }
+        }
+    } else if (strcmp(((Type_Ypython_Dict *)value)->type, "dict") == 0) {
+        Type_Ypython_Dict *dict_val = (Type_Ypython_Dict *)value;
+        new_value->dict_ = Ypython_Dict();
+        for (size_t i = 0; i < dict_val->keys->length; i++) {
+            Type_Ypython_String *the_key = dict_val->keys->function_get(dict_val->keys, i)->string_;
+            Type_Ypython_General *the_value = dict_val->values->function_get(dict_val->values, i);
+            if (the_key != NULL && the_value != NULL) {
+                the_value = _Ypython_copy_general_variable(the_value);
+                new_value->dict_->function_set(new_value->dict_, the_key, the_value);
+            }
+        }
+    }
+
+    return new_value;
+}
 
 // string functions
 Type_Ypython_List *ypython_string_type_function_split(Type_Ypython_String *self, Type_Ypython_String *seperator_string) {
@@ -1518,4 +1682,94 @@ Type_Ypython_List *ypython_string_type_function_split(Type_Ypython_String *self,
     }
     
     return result_list;
+}
+
+
+/*
+It should print out variable without new line unless user add '\n'
+It should be able to print str, double, int, bool, dict, list, none type variable directly 
+Just similar to how you print variables in python's realtime shell interpreter.
+
+It has bug for now, it is OK, because in the future, there would have json.dumps() and json.loads(), we will simply print formated json text.
+*/
+void ypython_raw_print(void *value)
+{
+    if (value == NULL) {
+        printf("NULL");
+        return;
+    }
+
+    if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
+        Type_Ypython_String *str = (Type_Ypython_String *)value;
+        // Print the string directly, allowing newlines to be interpreted
+        printf("%s", str->value);
+    } else if (strcmp(((Type_Ypython_Bool *)value)->type, "bool") == 0) {
+        Type_Ypython_Bool *bool_val = (Type_Ypython_Bool *)value;
+        if (bool_val->value == true) {
+            printf("True");
+        } else {
+            printf("False");
+        }
+    } else if (strcmp(((Type_Ypython_Int *)value)->type, "int") == 0) {
+        Type_Ypython_Int *int_val = (Type_Ypython_Int *)value;
+        printf("%lld", int_val->value);
+    } else if (strcmp(((Type_Ypython_Float *)value)->type, "float") == 0) {
+        Type_Ypython_Float *float_val = (Type_Ypython_Float *)value;
+        printf("%Lf", float_val->value);
+    } else if (strcmp(((Type_Ypython_List *)value)->type, "list") == 0) {
+        Type_Ypython_List *list_val = (Type_Ypython_List *)value;
+        printf("[");
+        for (size_t i = 0; i < list_val->length; i++) {
+            Type_Ypython_General *item = list_val->function_get(list_val, i);
+            if (item != NULL) {
+                if (item->string_ != NULL) {
+                    ypython_raw_print(item->string_);
+                } else if (item->bool_ != NULL) {
+                    ypython_raw_print(item->bool_);
+                } else if (item->int_ != NULL) {
+                    ypython_raw_print(item->int_);
+                } else if (item->float_ != NULL) {
+                    ypython_raw_print(item->float_);
+                } else if (item->list_ != NULL) {
+                    ypython_raw_print(item->list_);
+                } else if (item->dict_ != NULL) {
+                    ypython_raw_print(item->dict_);
+                }
+                if (i < list_val->length - 1) {
+                    printf(", ");
+                }
+            }
+        }
+        printf("]");
+    } else if (strcmp(((Type_Ypython_Dict *)value)->type, "dict") == 0) {
+        Type_Ypython_Dict *dict_val = (Type_Ypython_Dict *)value;
+        printf("{");
+        for (size_t i = 0; i < dict_val->keys->length; i++) {
+            Type_Ypython_String *the_key = dict_val->keys->function_get(dict_val->keys, i)->string_;
+            Type_Ypython_General *the_value = dict_val->values->function_get(dict_val->values, i);
+            if (the_key != NULL && the_value != NULL) {
+                ypython_raw_print(the_key);
+                printf(": ");
+                if (the_value->string_ != NULL) {
+                    ypython_raw_print(the_value->string_);
+                } else if (the_value->bool_ != NULL) {
+                    ypython_raw_print(the_value->bool_);
+                } else if (the_value->int_ != NULL) {
+                    ypython_raw_print(the_value->int_);
+                } else if (the_value->float_ != NULL) {
+                    ypython_raw_print(the_value->float_);
+                } else if (the_value->list_ != NULL) {
+                    ypython_raw_print(the_value->list_);
+                } else if (the_value->dict_ != NULL) {
+                    ypython_raw_print(the_value->dict_);
+                }
+                if (i < dict_val->keys->length - 1) {
+                    printf(", ");
+                }
+            }
+        }
+        printf("}");
+    } else if (strcmp(((Type_Ypython_None *)value)->type, "none") == 0) {
+        printf("None");
+    }
 }
