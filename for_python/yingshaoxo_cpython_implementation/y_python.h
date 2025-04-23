@@ -911,7 +911,6 @@ Type_Ypython_General *Ypython_General() {
     new_value->is_none = false;
     new_value -> type = (char *)"general";
 
-    // todo: may find a way to create a Ypython_General(variable) automatically from self->type
     new_value->bool_ = NULL;
     new_value->float_ = NULL;
     new_value->int_ = NULL;
@@ -977,7 +976,6 @@ void Type_Ypython_List_append(Type_Ypython_List *self, Type_Ypython_General *an_
         return;
     }
 
-    // todo: need to copy value to prevent value change outside, it is a complex c memory management problem
     _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
 
     if (self->head == NULL) {
@@ -1431,13 +1429,11 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
     Type_Ypython_General *the_key = Ypython_General();
     the_key->string_ = Ypython_String(a_key->value);
 
-    Type_Ypython_General *value_copy = _Ypython_copy_general_variable(a_value);
-
     Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
 
-    /*
     // yingshaoxo: I prefer this method because it is simple, but it has bug, the bug may related to c itself, not my design
     
+    /*
     if (index->is_none) {
         // we don't have this key in this dict, add a new one
         self->keys->function_append(self->keys, the_key);
@@ -1460,7 +1456,7 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
         }
         self->keys->length++;
 
-        _Ypython_Linked_List_Node *new_value_node = _Ypython_create_list_Node(value_copy);
+        _Ypython_Linked_List_Node *new_value_node = _Ypython_create_list_Node(a_value);
         if (self->values->head == NULL) {
             self->values->head = new_value_node;
             self->values->tail = new_value_node;
@@ -1475,7 +1471,7 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
         for (long long i = 0; i < index->value; i++) {
             current = current->next;
         }
-        current->value = value_copy;
+        current->value = a_value;
     }   
 }
 
@@ -1502,7 +1498,8 @@ Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypytho
         return result;
     } else {
         // we have this key in this dict, return the value
-        return self->values->function_get(self->values, index->value);
+        Type_Ypython_General *a_value = self->values->function_get(self->values, index->value);
+        return a_value;
     }
 }
 
