@@ -517,15 +517,51 @@ Type_Ypython_String *Type_Ypython_String_add(Type_Ypython_String *self, Type_Ypy
     } else {
         new_string_value->is_none = false;
 
-        size_t total_length = _ypython_get_string_length(self->value) + _ypython_get_string_length(another_string->value);
+        size_t total_length = _ypython_get_string_length(self->value) + _ypython_get_string_length(another_string->value) + 1;
         char *new_chars_value = (char *)malloc(total_length);
-        snprintf(new_chars_value, total_length+1, "%s%s", self->value, another_string->value);
+        snprintf(new_chars_value, total_length, "%s%s", self->value, another_string->value);
 
         new_string_value->value = new_chars_value;
         new_string_value->length = strlen(new_string_value->value);
     }
 
     return new_string_value;
+
+    /*
+    Type_Ypython_String *new_string_value = Ypython_String((char *)"");
+
+    if (self->is_none || another_string->is_none) {
+        new_string_value->value = (char *)"";
+        new_string_value->length = 0;
+        new_string_value->is_none = true;
+        return new_string_value;
+    }
+
+    new_string_value->is_none = false;
+
+    // Calculate total length including null terminator
+    size_t self_len = strlen(self->value);
+    size_t another_len = strlen(another_string->value);
+    size_t total_length = self_len + another_len + 1;  // +1 for null terminator
+
+    // Allocate memory for the new string
+    char *new_chars_value = (char *)malloc(total_length);
+    if (new_chars_value == NULL) {
+        new_string_value->is_none = true;
+        return new_string_value;
+    }
+
+    // Copy first string
+    strcpy(new_chars_value, self->value);
+    // Append second string
+    strcat(new_chars_value, another_string->value);
+
+    // Set the new string value
+    new_string_value->value = new_chars_value;
+    new_string_value->length = total_length - 1;  // -1 because we don't count null terminator
+
+    return new_string_value;
+    */
 }
 
 bool Type_Ypython_String_is_equal(Type_Ypython_String *self, Type_Ypython_String *another_string) {
