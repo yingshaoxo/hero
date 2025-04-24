@@ -1101,48 +1101,6 @@ void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypy
         return;
     }
 
-    _Ypython_Linked_List_Node *current_node = self->head;
-    _Ypython_Linked_List_Node *previous = NULL;
-
-    if (current_node == NULL) {
-        // 0 elements inside;
-        _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
-        self->head = newNode;
-        self->tail = newNode;
-        self->length = self->length + 1;
-        return;
-    }
-  
-    long long i = 0;
-    while (current_node != NULL) {
-        if (i == index) {
-            _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
-          
-            if (previous == NULL) {
-                // Inserting at the head
-                newNode->next = self->head;
-                self->head = newNode;
-            } else {
-                newNode->next = current_node;
-                previous->next = newNode;
-            }
-            
-            self->length = self->length + 1;
-            break;
-        }
-        previous = current_node;
-        current_node = current_node->next;
-        i++;
-    }
-}
-
-/*
-// copilot version
-void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
-    if (self == NULL || self->is_none || an_element == NULL || index < 0 || index > self->length) {
-        return; // Handle invalid inputs
-    }
-
     _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
     if (newNode == NULL) {
         fprintf(stderr, "Memory allocation failed in insert\n");
@@ -1177,7 +1135,6 @@ void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypy
 
     self->length++; // Increment the length of the list
 }
-*/
 
 void Type_Ypython_List_set(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
     if (self->is_none || ((index < 0) || (index >= self->length))) {
