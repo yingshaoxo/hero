@@ -691,6 +691,7 @@ Type_Ypython_String *Ypython_String(char *value) {
 
     new_string_value->length = strlen(value);
     new_string_value->value = ypython_string_copy(value);
+    //new_string_value->value = strdup(value);
 
     new_string_value->function_add = &Type_Ypython_String_add;
     new_string_value->function_is_equal = &Type_Ypython_String_is_equal;
@@ -1061,31 +1062,38 @@ void Type_Ypython_List_delete(Type_Ypython_List *self, long long index) {
         return;
     }
 
-    int i = 0;
     _Ypython_Linked_List_Node *current_node = self->head;
-    _Ypython_Linked_List_Node *previous = NULL;
+    _Ypython_Linked_List_Node *previous_node = NULL;
 
-    if (current_node == NULL) {
-        // 0 elements inside;
-        return;
-    }
-  
-    while (current_node != NULL) {
-        if (i == index) {
-            if (previous == NULL) {
-                // Deleting the head node
-                self->head = current_node->next;
-            } else {
-                previous->next = current_node->next;
-            }
-            self->length = self->length - 1;
-            free(current_node);
-            break;
+    if (index == 0) {
+        // Delete the head node
+        self->head = current_node->next;
+        if (self->head == NULL) {
+            // If the list becomes empty, update the tail as well
+            self->tail = NULL;
         }
-        previous = current_node;
-        current_node = current_node->next;
-        i++;
+        free(current_node->value); // Free the value stored in the node
+        free(current_node);        // Free the node itself
+    } else {
+        // Traverse the list to find the node to delete
+        for (long long i = 0; i < index; i++) {
+            previous_node = current_node;
+            current_node = current_node->next;
+        }
+
+        // Update the links to bypass the node to delete
+        previous_node->next = current_node->next;
+
+        // Update the tail if the last node is deleted
+        if (current_node->next == NULL) {
+            self->tail = previous_node;
+        }
+
+        free(current_node->value); // Free the value stored in the node
+        free(current_node);        // Free the node itself
     }
+
+    self->length--; // Decrement the length of the list
 }
 
 void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
@@ -1093,7 +1101,6 @@ void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypy
         return;
     }
 
-    int i = 0;
     _Ypython_Linked_List_Node *current_node = self->head;
     _Ypython_Linked_List_Node *previous = NULL;
 
@@ -1101,10 +1108,12 @@ void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypy
         // 0 elements inside;
         _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
         self->head = newNode;
+        self->tail = newNode;
         self->length = self->length + 1;
         return;
     }
   
+    long long i = 0;
     while (current_node != NULL) {
         if (i == index) {
             _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
@@ -1127,40 +1136,74 @@ void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypy
     }
 }
 
+/*
+// copilot version
+void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
+    if (self == NULL || self->is_none || an_element == NULL || index < 0 || index > self->length) {
+        return; // Handle invalid inputs
+    }
+
+    _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
+    if (newNode == NULL) {
+        fprintf(stderr, "Memory allocation failed in insert\n");
+        exit(1);
+    }
+
+    if (index == 0) {
+        // Insert at the head
+        newNode->next = self->head;
+        self->head = newNode;
+        if (self->tail == NULL) {
+            // If the list was empty, update the tail as well
+            self->tail = newNode;
+        }
+    } else {
+        // Traverse the list to find the node before the insertion point
+        _Ypython_Linked_List_Node *current_node = self->head;
+        for (long long i = 0; i < index - 1; i++) {
+            current_node = current_node->next;
+        }
+
+        // Insert the new node
+        // In here, the current_node becomes previous node
+        newNode->next = current_node->next;
+        current_node->next = newNode;
+
+        // Update the tail if the new node is inserted at the end
+        if (newNode->next == NULL) {
+            self->tail = newNode;
+        }
+    }
+
+    self->length++; // Increment the length of the list
+}
+*/
+
 void Type_Ypython_List_set(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
     if (self->is_none || ((index < 0) || (index >= self->length))) {
         return;
     }
 
-    int i = 0;
     _Ypython_Linked_List_Node *current_node = self->head;
-    _Ypython_Linked_List_Node *previous = NULL;
-
     if (current_node == NULL) {
         // 0 elements inside;
         return;
     }
-  
+
+    long long current_index = 0;
     while (current_node != NULL) {
-        if (i == index) {
-            _Ypython_Linked_List_Node *newNode = _Ypython_create_list_Node(an_element);
-          
-            if (previous == NULL) {
-                // Inserting at the head
-                newNode->next = self->head->next;
-                free(self->head);
-                self->head = newNode;
-            } else {
-                previous->next = newNode;
-                newNode->next = current_node->next;
-                free(current_node);
+        if (current_index == index) {
+            // Free the old value to prevent memory leaks
+            if (current_node->value != NULL) {
+                free(current_node->value);
             }
-            
-            break;
+
+            // Set the new value
+            current_node->value = an_element;
+            return;
         }
-        previous = current_node;
         current_node = current_node->next;
-        i++;
+        current_index = current_index + 1;
     }
 }
 
@@ -1467,9 +1510,6 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
 
     Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
 
-    // yingshaoxo: I prefer this method because it is simple, but it has bug, the bug may related to c itself, not my design
-    
-    /*
     if (index->is_none) {
         // we don't have this key in this dict, add a new one
         self->keys->function_append(self->keys, the_key);
@@ -1478,37 +1518,6 @@ void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, 
         // we have this key in this dict, update old one
         self->values->function_set(self->values, index->value, a_value);
     }
-    */
-
-    if (index->is_none) {
-        // we don't have this key in this dict, add a new one
-        _Ypython_Linked_List_Node *new_key_node = _Ypython_create_list_Node(the_key);
-        if (self->keys->head == NULL) {
-            self->keys->head = new_key_node;
-            self->keys->tail = new_key_node;
-        } else {
-            self->keys->tail->next = new_key_node;
-            self->keys->tail = new_key_node;
-        }
-        self->keys->length++;
-
-        _Ypython_Linked_List_Node *new_value_node = _Ypython_create_list_Node(a_value);
-        if (self->values->head == NULL) {
-            self->values->head = new_value_node;
-            self->values->tail = new_value_node;
-        } else {
-            self->values->tail->next = new_value_node;
-            self->values->tail = new_value_node;
-        }
-        self->values->length++;
-    } else {
-        // we have this key in this dict, update old one
-        _Ypython_Linked_List_Node *current = self->values->head;
-        for (long long i = 0; i < index->value; i++) {
-            current = current->next;
-        }
-        current->value = a_value;
-    }   
 }
 
 Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypython_String *a_key) {
@@ -1806,3 +1815,4 @@ void ypython_raw_print(void *value)
         printf("None");
     }
 }
+
