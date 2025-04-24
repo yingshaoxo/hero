@@ -8,7 +8,7 @@ Type_Ypython_Dict *function_dict = NULL;
 void process(Type_Ypython_String *text_code) {
     //split into lines and execute
     //ypython_print(text_code->value);
-    ypython_print("");
+    //ypython_print("");
 
     Type_Ypython_List *lines_list = ypython_string_type_function_split(text_code, Ypython_String("\n"));
     lines_list->function_start_iteration(lines_list);
