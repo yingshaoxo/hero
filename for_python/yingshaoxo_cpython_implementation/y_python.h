@@ -1384,9 +1384,9 @@ void Type_Ypython_List_set(Type_Ypython_List *self, long long index, Type_Ypytho
     }
 
     // Free old element
-    if (self->items[index]) {
-        free(self->items[index]);
-    }
+    //if (self->items[index]) {
+    //    free(self->items[index]);
+    //}
     self->items[index] = an_element;
 }
 
@@ -1396,10 +1396,10 @@ void Type_Ypython_List_delete(Type_Ypython_List *self, long long index) {
     }
 
     // Free the element at index
-    if (self->items[index]) {
-        free(self->items[index]);
-        self->items[index] = NULL;
-    }
+    //if (self->items[index]) {
+    //    free(self->items[index]);
+    //    self->items[index] = NULL;
+    //}
 
     // Shift elements left
     for (long long i = index; i < self->length - 1; i++) {
