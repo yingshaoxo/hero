@@ -970,6 +970,7 @@ A good list data type has to have:
 
 Tip: If you know the length of that list when you creat it, you should use normal c_list. Only when you change list length later, you use linked list.
 */
+/*
 typedef struct _Ypython_Linked_List_Node _Ypython_Linked_List_Node;
 struct _Ypython_Linked_List_Node {
     Type_Ypython_General *value;
@@ -1287,6 +1288,7 @@ Type_Ypython_List *Ypython_List() {
 
     return new_list_value;
 }
+*/
 
 
 /*
@@ -1296,59 +1298,67 @@ Old non_linked_list List type
 A good list data type has to have:
 1. infinity list size increasing in real time
 2. automatically garbage collection
+
+Tip: Uses a dynamic array with doubling/halving strategy for efficient access.
+List structure was created by grok3 from yingshaoxo_list python implementation
 */
-/*
 typedef struct Type_Ypython_List Type_Ypython_List;
 struct Type_Ypython_List {
     bool is_none;
     char *type;
 
-    Type_Ypython_General* *value;
-    long long length;
+    Type_Ypython_General **items; // Dynamic array of pointers
+    long long length;            // Number of elements
+    long long memory_slots;      // Allocated slots
 
-    Type_Ypython_List *(*function_append)(Type_Ypython_List *self, Type_Ypython_General *an_element);
+    bool iteration_not_done;
+    long long current_iterate_index;
+
+    void (*function_append)(Type_Ypython_List *self, Type_Ypython_General *an_element);
     Type_Ypython_Int *(*function_index)(Type_Ypython_List *self, Type_Ypython_General *an_element);
-    Type_Ypython_General *(*function_get)(Type_Ypython_List *self, long long index);
+    Type_Ypython_General* (*function_get)(Type_Ypython_List *self, long long index);
     void (*function_set)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
-    Type_Ypython_List *(*function_delete)(Type_Ypython_List *self, long long index);
-    Type_Ypython_List *(*function_insert)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
+    void (*function_delete)(Type_Ypython_List *self, long long index);
+    void (*function_insert)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
+    Type_Ypython_List* (*function_sublist)(Type_Ypython_List *self, long long start_index, long long end_index);
+    void (*function_start_iteration)(Type_Ypython_List *self);
+    Type_Ypython_General* (*function_get_next_one)(Type_Ypython_List *self);
 };
 
-Type_Ypython_List *Ypython_List();
-Type_Ypython_List *Type_Ypython_List_append(Type_Ypython_List *self, Type_Ypython_General *an_element) {
-    Type_Ypython_List *new_list_value = Ypython_List();
-
+void Type_Ypython_List_append(Type_Ypython_List *self, Type_Ypython_General *an_element) {
     if (self->is_none) {
-        new_list_value->is_none = true;
-        return new_list_value;
-    } else {
-        new_list_value->length = self->length + 1;
-        new_list_value->value = malloc(sizeof(Type_Ypython_General*) * new_list_value->length);
-
-        // Copy the existing elements from the original list
-        for (long long i = 0; i < self->length; i++) {
-            new_list_value->value[i] = self->value[i];
-        }
-
-        // Append the new element to the end of the list
-        new_list_value->value[new_list_value->length - 1] = an_element;
+        return;
     }
 
-    return new_list_value;
+    if (self->length >= self->memory_slots) {
+        self->memory_slots *= 2;
+        Type_Ypython_General **new_items = (Type_Ypython_General **)_ypython_resize_memory_block_for_a_pointer(self->items, self->memory_slots * sizeof(Type_Ypython_General *));
+        if (!new_items) {
+            fprintf(stderr, "Memory reallocation failed in append\n");
+            exit(1);
+        }
+        self->items = new_items;
+        for (long long i = self->length; i < self->memory_slots; i++) {
+            self->items[i] = NULL;
+        }
+    }
+
+    self->items[self->length] = an_element;
+    self->length++;
 }
 
 Type_Ypython_Int *Type_Ypython_List_index(Type_Ypython_List *self, Type_Ypython_General *an_element) {
     Type_Ypython_Int *index = Ypython_Int(-1);
-
     if (self->is_none) {
         index->is_none = true;
         return index;
-    } else {
-        for (long long i = 0; i < self->length; i++) {
-            if (an_element->function_is_equal(an_element, self->value[i])) {
-                index->value = i;
-                return index;
-            }
+    }
+
+    for (long long i = 0; i < self->length; i++) {
+        if (self->items[i] && self->items[i]->function_is_equal(self->items[i], an_element)) {
+            index->value = i;
+            index->is_none = false;
+            return index;
         }
     }
 
@@ -1356,81 +1366,174 @@ Type_Ypython_Int *Type_Ypython_List_index(Type_Ypython_List *self, Type_Ypython_
     return index;
 }
 
-Type_Ypython_General *Type_Ypython_List(Type_Ypython_List *self, long long index) {
-    return self->value[index];
+Type_Ypython_General* Type_Ypython_List_get(Type_Ypython_List *self, long long index) {
+    Type_Ypython_General *default_element = Ypython_General();
+    default_element->is_none = true;
+
+    if (self->is_none || index < 0 || index >= self->length) {
+        return default_element;
+    }
+
+    free(default_element);
+    return self->items[index];
 }
 
-void Type_Ypython_List(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
-    self->value[index] = an_element;
-    return;
+void Type_Ypython_List_set(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
+    if (self->is_none || index < 0 || index >= self->length) {
+        return;
+    }
+
+    // Free old element
+    if (self->items[index]) {
+        free(self->items[index]);
+    }
+    self->items[index] = an_element;
 }
 
-Type_Ypython_List *Type_Ypython_List_delete(Type_Ypython_List *self, long long index) {
-    Type_Ypython_List *new_list_value = Ypython_List();
+void Type_Ypython_List_delete(Type_Ypython_List *self, long long index) {
+    if (self->is_none || index < 0 || index >= self->length) {
+        return;
+    }
 
-    if (self->is_none) {
-        new_list_value->is_none = true;
-        return new_list_value;
-    } else {
-        new_list_value->length = self->length - 1;
-        new_list_value->value = malloc(sizeof(Type_Ypython_General*) * new_list_value->length);
+    // Free the element at index
+    if (self->items[index]) {
+        free(self->items[index]);
+        self->items[index] = NULL;
+    }
 
-        // Copy the existing elements from the original list
-        for (long long i = 0; i < self->length; i++) {
-            if (i != index) {
-                new_list_value->value[i] = self->value[i];
-            }
+    // Shift elements left
+    for (long long i = index; i < self->length - 1; i++) {
+        self->items[i] = self->items[i + 1];
+    }
+    self->items[self->length - 1] = NULL;
+    self->length--;
+
+    // Shrink if underutilized
+    if (self->length < self->memory_slots / 2 && self->memory_slots > 8) {
+        self->memory_slots = _ypython_get_float_absolute_value(self->memory_slots / 2);
+        if (self->memory_slots < 8) {
+            self->memory_slots = 8;
+        }
+        Type_Ypython_General **new_items = (Type_Ypython_General **)_ypython_resize_memory_block_for_a_pointer(self->items, self->memory_slots * sizeof(Type_Ypython_General *));
+        if (!new_items) {
+            fprintf(stderr, "Memory reallocation failed in delete\n");
+            exit(1);
+        }
+        self->items = new_items;
+        for (long long i = self->length; i < self->memory_slots; i++) {
+            self->items[i] = NULL;
+        }
+    }
+}
+
+void Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
+    if (self->is_none || index < 0 || index > self->length) {
+        return;
+    }
+
+    if (self->length >= self->memory_slots) {
+        self->memory_slots *= 2;
+        Type_Ypython_General **new_items = (Type_Ypython_General **)_ypython_resize_memory_block_for_a_pointer(self->items, self->memory_slots * sizeof(Type_Ypython_General *));
+        if (!new_items) {
+            fprintf(stderr, "Memory reallocation failed in insert\n");
+            exit(1);
+        }
+        self->items = new_items;
+        for (long long i = self->length; i < self->memory_slots; i++) {
+            self->items[i] = NULL;
         }
     }
 
-    return new_list_value;
+    // Shift elements right
+    for (long long i = self->length; i > index; i--) {
+        self->items[i] = self->items[i - 1];
+    }
+    self->items[index] = an_element;
+    self->length++;
 }
 
-Type_Ypython_List *Type_Ypython_List_insert(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element) {
-    Type_Ypython_List *new_list_value = Ypython_List();
+Type_Ypython_List* Type_Ypython_List_sublist(Type_Ypython_List *self, long long start_index, long long end_index) {
+    Type_Ypython_List *new_list = Ypython_List();
+    new_list->is_none = true;
 
-    if (self->is_none) {
-        new_list_value->is_none = true;
-        return new_list_value;
-    } else {
-        new_list_value->length = self->length + 1;
-        new_list_value->value = malloc(sizeof(Type_Ypython_General*) * new_list_value->length);
-
-        // Copy the existing elements from the original list
-        for (long long i = 0; i < new_list_value->length; i++) {
-            if (i < index) {
-                new_list_value->value[i] = self->value[i];
-            } else if (i == index) {
-                new_list_value->value[i] = an_element;
-            } else {
-                new_list_value->value[i] = self->value[i-1];
-            }
-        }
+    if (self->is_none || start_index < 0 || end_index > self->length || start_index > end_index) {
+        return new_list;
     }
 
-    return new_list_value;
+    new_list->is_none = false;
+    for (long long i = start_index; i < end_index; i++) {
+        new_list->function_append(new_list, self->items[i]); // Shallow copy
+    }
+
+    return new_list;
+}
+
+void Type_Ypython_List_start_iteration(Type_Ypython_List *self) {
+    if (self->is_none) {
+        self->iteration_not_done = false;
+        return;
+    }
+
+    self->current_iterate_index = 0;
+    self->iteration_not_done = self->length > 0;
+}
+
+Type_Ypython_General* Type_Ypython_List_get_next_one(Type_Ypython_List *self) {
+    Type_Ypython_General *default_element = Ypython_General();
+    default_element->is_none = true;
+
+    if (self->is_none || !self->iteration_not_done || self->current_iterate_index >= self->length) {
+        self->iteration_not_done = false;
+        return default_element;
+    }
+
+    Type_Ypython_General *element = self->items[self->current_iterate_index];
+    self->current_iterate_index++;
+    if (self->current_iterate_index >= self->length) {
+        self->iteration_not_done = false;
+    }
+
+    free(default_element);
+    return element;
 }
 
 Type_Ypython_List *Ypython_List() {
-    Type_Ypython_List *new_list_value;
-    new_list_value = (Type_Ypython_List *)malloc(sizeof(Type_Ypython_List));
+    Type_Ypython_List *new_list_value = (Type_Ypython_List *)_ypython_memory_allocation_for_data(sizeof(Type_Ypython_List));
+    if (!new_list_value) {
+        fprintf(stderr, "Memory allocation failed for list\n");
+        exit(1);
+    }
 
     new_list_value->is_none = false;
     new_list_value->type = (char *)"list";
 
+    new_list_value->memory_slots = 8;
     new_list_value->length = 0;
-    new_list_value->value = malloc(sizeof(Type_Ypython_General*) * new_list_value->length);
+    new_list_value->items = (Type_Ypython_General **)_ypython_memory_allocation_for_data(new_list_value->memory_slots * sizeof(Type_Ypython_General *));
+    if (!new_list_value->items) {
+        free(new_list_value);
+        fprintf(stderr, "Memory allocation failed for list items\n");
+        exit(1);
+    }
+    for (long long i = 0; i < new_list_value->memory_slots; i++) {
+        new_list_value->items[i] = NULL;
+    }
+
+    new_list_value->iteration_not_done = false;
+    new_list_value->current_iterate_index = 0;
 
     new_list_value->function_append = &Type_Ypython_List_append;
     new_list_value->function_index = &Type_Ypython_List_index;
-    new_list_value->function_get = &Type_Ypython_List_get;
     new_list_value->function_set = &Type_Ypython_List_set;
+    new_list_value->function_get = &Type_Ypython_List_get;
     new_list_value->function_delete = &Type_Ypython_List_delete;
     new_list_value->function_insert = &Type_Ypython_List_insert;
+    new_list_value->function_sublist = &Type_Ypython_List_sublist;
+    new_list_value->function_start_iteration = &Type_Ypython_List_start_iteration;
+    new_list_value->function_get_next_one = &Type_Ypython_List_get_next_one;
 
     return new_list_value;
 }
-*/
 
 
 /*

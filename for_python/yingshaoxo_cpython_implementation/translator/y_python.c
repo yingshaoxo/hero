@@ -64,7 +64,6 @@ void process(Type_Ypython_String *text_code) {
                             function_body = function_body->function_add(function_body, clean_line);
                             function_body = function_body->function_add(function_body, Ypython_String("\n"));
                         } else {
-                            lines_list->length = lines_list->length - 1;
                             break;
                         }
                     }
