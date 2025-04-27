@@ -1,16 +1,24 @@
 # yingshaoxo: A demo python parser, definately have bugs, it is just fake code, rewrite it carefully to prevent bugs
 
-global_variable_dict = { } # normally in python you get this dict by using dir()
+# normally in python you get this dict by using dir()
+global_variable_dict = {
+    "__built_in_s__": ["type"]
+}
 
 class Python_Element_Instance():
     def __init__(self):
         # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class(a_dict{propertys:dict(), functions:dict()})
         self.type = "None"
         self.name = None # variable name, function name, class name
-        self.general_value = None
+        self.general_value = None # in c, it is Ypython_General()
 
-def get_python_element_instance(a_variable_name_or_raw_value):
-    if a_variable_name_or_raw_value not in global_variable_dict:
+def handle_built_in_function():
+    pass
+
+def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
+    global global_variable_dict
+
+    if (a_variable_name_or_raw_value not in variable_dict) and (a_variable_name_or_raw_value not in global_variable_dict):
         # may detect if its a number or bool or string or ...
         a_element = Python_Element_Instance()
         if a_variable_name_or_raw_value.startswith('"') and a_variable_name_or_raw_value.endswith('"'):
@@ -37,28 +45,31 @@ def get_python_element_instance(a_variable_name_or_raw_value):
         elif a_variable_name_or_raw_value.startswith('[') and a_variable_name_or_raw_value.endswith(']'):
             # it is list
             a_element.type = "list"
-            values = a_variable_name_or_raw_value[1:-1].split(",")
-            values = [get_python_element_instance(one) for one in values]
+            values = a_variable_name_or_raw_value[1:-1].split(", ")
+            values = [get_python_element_instance(variable_dict, one) for one in values]
             a_element.general_value = values
         elif a_variable_name_or_raw_value.startswith('{') and a_variable_name_or_raw_value.endswith('}'):
             # it is dict
             a_element.type = "dict"
-            values = a_variable_name_or_raw_value[1:-1].split(",") # there may have a bug when a list is in the dict
-            values = {one.split(":")[0].strip(): get_python_element_instance(one.split(":")[1].strip()) for one in values}
+            values = a_variable_name_or_raw_value[1:-1].split(", ") # there may have a bug when a list is in the dict
+            values = {one.split(": ")[0].strip(): get_python_element_instance(variable_dict, one.split(":")[1].strip()) for one in values}
             a_element.general_value = values
         else:
             # unknow, treat it as string
             a_element.type = "string"
-            a_element.general_value = str(a_variable_name_or_raw_value)
+            a_element.general_value = "Error: no variable called '" + str(a_variable_name_or_raw_value) + "'"
         return a_element
     else:
-        return global_variable_dict[a_variable_name_or_raw_value]
+        if a_variable_name_or_raw_value in variable_dict:
+            return variable_dict[a_variable_name_or_raw_value]
+        elif a_variable_name_or_raw_value in global_variable_dict:
+            return global_variable_dict[a_variable_name_or_raw_value]
 
-def handle_one_line_operations(one_line_code):
+def handle_one_line_operations(variable_dict, one_line_code):
     #return eval(one_line_code)
     if " + " in one_line_code:
         parts = one_line_code.split(" + ")
-        parts = [get_python_element_instance(one) for one in parts]
+        parts = [get_python_element_instance(variable_dict, one) for one in parts]
         value = parts[0].general_value
         for one_value in parts[1:]:
             value += one_value.general_value
@@ -77,7 +88,7 @@ def handle_one_line_operations(one_line_code):
     elif " == " in one_line_code:
         pass
     else:
-        return get_python_element_instance(one_line_code)
+        return get_python_element_instance(variable_dict, one_line_code)
 
 def general_print(an_element, end="\n"):
     if an_element.type == "list":
@@ -95,7 +106,9 @@ def general_print(an_element, end="\n"):
     else:
         print(an_element.general_value, end=end)
 
-def process(text_code):
+def process(variable_dict, text_code):
+    global global_variable_dict
+
     # handle code, mainly just for codes inside of a function
     lines = text_code.split("\n")
     line_index = 0
@@ -105,12 +118,12 @@ def process(text_code):
             # we save that variable to global variable dict
             key, value = line.split(" = ")
             key, value = key.strip(), value.strip()
-            an_element = handle_one_line_operations(value)
+            an_element = handle_one_line_operations(variable_dict, value)
             an_element.name = key
-            global_variable_dict[key] = an_element
+            variable_dict[key] = an_element
         elif "print(" in line:
             key = line.split("print(")[1].split(")")[0]
-            value_instance = handle_one_line_operations(key)
+            value_instance = handle_one_line_operations(variable_dict, key)
             general_print(value_instance)
         elif line.startswith("def "):
             # it is a function, we should save it in somewhere
@@ -118,28 +131,50 @@ def process(text_code):
             function_code = ""
             end_of_a_function_new_line_counting = 0
 
-            temp_index = line_index + 1
+            #temp_index = line_index + 1 #try to save the function arguments, so not plus one
+            temp_index = line_index
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
                 if temp_line.strip() != "":
-                    function_code += line + "\n"
+                    function_code += temp_line + "\n"
                 else:
                     end_of_a_function_new_line_counting += 1
                 if end_of_a_function_new_line_counting >= 1:
                     break
                 temp_index += 1
+            line_index = temp_index - 1
 
             an_element = Python_Element_Instance()
             an_element.type = "function"
             an_element.name = function_name
             an_element.general_value = function_code
-            global_variable_dict[function_name] = an_element
-        elif (not line.startswith("def ")) and "()" in line:
+            variable_dict[function_name] = an_element
+        elif (not line.startswith("def ")) and "(" in line and line.endswith(")"):
             # it is calling a function
             function_name = line.split("(")[0]
-            an_element = global_variable_dict[function_name]
-            if an_element.type == "function":
-                process(an_element.general_value)
+            function_arguments = line.split("(")[1].split(")")[0].strip()
+
+            if function_arguments != "" and ", " in function_arguments:
+                arguments_are_variable_dict = {one.split("=")[0]: handle_one_line_operations(variable_dict, one.split("=")[1]) for one in function_arguments.split(", ")}
+                # how to handle list arguments function(1,2,3) than function(a=b) is a problem here.
+            else:
+                arguments_are_variable_dict = {}
+
+            if (function_name in variable_dict) or (function_name in global_variable_dict):
+                if function_name in variable_dict:
+                    an_element = variable_dict[function_name]
+                elif function_name in global_variable_dict:
+                    an_element = global_variable_dict[function_name]
+                if an_element.type == "function":
+                    local_dict_for_a_function = variable_dict.copy()
+                    local_dict_for_a_function.update(arguments_are_variable_dict)
+                    process(local_dict_for_a_function, "\n".join(an_element.general_value.split("\n")[1:]))
+            elif function_name in global_variable_dict["__built_in_s__"]:
+                if function_name == "type":
+                    print(handle_one_line_operations(variable_dict, function_arguments).type)
+                    # this just remain me one thing, I do not know how to let my function return a value...
+            else:
+                print("Error: no function called '" + function_name + "'")
 
         line_index += 1
 
@@ -153,13 +188,15 @@ def a_function_1():
     print(a_child_variable)
 
 a_function_1()
+print(a_child_variable)
 
-def a_function_2():
+def a_function_2(temp_2):
     temp_1 = " you say"
     a_child_variable2 = "whatever" + temp_1
     print(a_child_variable2)
+    print(temp_2)
 
-a_function_2()
+a_function_2(temp_2=" haha ")
 print("is" + " right")
 
 a_dict = {a: 3}
@@ -167,6 +204,10 @@ print(a_dict)
 
 a_list = ["god", "yingshaoxo"]
 print(a_list)
+
+print(2 + 3)
+
+type(2)
 """
 
-process(a_py_file_text)
+process(global_variable_dict, a_py_file_text)
