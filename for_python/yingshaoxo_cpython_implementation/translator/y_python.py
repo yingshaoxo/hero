@@ -12,9 +12,6 @@ class Python_Element_Instance():
         self.name = None # variable name, function name, class name
         self.general_value = None # in c, it is Ypython_General()
 
-def handle_built_in_function():
-    pass
-
 def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
     global global_variable_dict
 
@@ -81,11 +78,41 @@ def handle_one_line_operations(variable_dict, one_line_code):
         return an_element
     elif " - " in one_line_code:
         pass
+    elif " * " in one_line_code:
+        pass
+    elif " / " in one_line_code:
+        pass
     elif " > " in one_line_code:
         pass
+    elif " >= " in one_line_code:
+        pass
     elif " < " in one_line_code:
+        parts = one_line_code.split(" < ")
+
+        an_element = Python_Element_Instance()
+        an_element.type = "bool"
+
+        if len(parts) == 2:
+            an_element.general_value = get_python_element_instance(variable_dict, parts[0]).general_value < get_python_element_instance(variable_dict, parts[1]).general_value
+        else:
+            an_element.general_value = False
+
+        return an_element
+    elif " <= " in one_line_code:
         pass
     elif " == " in one_line_code:
+        parts = one_line_code.split(" == ")
+
+        an_element = Python_Element_Instance()
+        an_element.type = "bool"
+
+        if len(parts) == 2:
+            an_element.general_value = get_python_element_instance(variable_dict, parts[0]).general_value == get_python_element_instance(variable_dict, parts[1]).general_value
+        else:
+            an_element.general_value = False
+
+        return an_element
+    elif " != " in one_line_code:
         pass
     else:
         return get_python_element_instance(variable_dict, one_line_code)
@@ -139,20 +166,81 @@ def general_print(an_element, end="\n"):
         print(an_element.general_value, end=end)
 
 def process(variable_dict, text_code):
-    global global_variable_dict
-
     # handle code, mainly just for codes inside of a function
     lines = text_code.split("\n")
     line_index = 0
     while line_index < len(lines):
         line = lines[line_index]
-        if " = " in line:
+        if line.strip().startswith("#"):
+            pass
+        elif line.strip().startswith("if "):
+            if_line = line
+
+            temp_index = line_index + 1
+            temp_code_block = ""
+            base_line = lines[temp_index]
+            indents_number = len(base_line) - len(base_line.lstrip())
+            while temp_index < len(lines):
+                temp_line = lines[temp_index]
+                new_indents_number = len(temp_line) - len(temp_line.lstrip())
+                if new_indents_number != indents_number:
+                    break
+                temp_code_block += temp_line + "\n"
+                temp_index += 1
+            line_index = temp_index
+
+            verifying = if_line.split("if ")[1].split(":")[0]
+            verifying = handle_one_line_operations(variable_dict, verifying)
+
+            if verifying.type == "bool":
+                if verifying.general_value == True:
+                    process(variable_dict, temp_code_block)
+        elif line.strip().startswith("while "):
+            while_line = line
+
+            temp_index = line_index + 1
+            temp_code_block = ""
+            base_line = lines[temp_index]
+            indents_number = len(base_line) - len(base_line.lstrip())
+            while temp_index < len(lines):
+                temp_line = lines[temp_index]
+                new_indents_number = len(temp_line) - len(temp_line.lstrip())
+                if new_indents_number != indents_number:
+                    break
+                temp_code_block += temp_line + "\n"
+                temp_index += 1
+            line_index = temp_index
+
+            while True:
+                verifying = while_line.split("while ")[1].split(":")[0]
+                verifying = handle_one_line_operations(variable_dict, verifying)
+
+                if verifying.type == "bool":
+                    if verifying.general_value == True:
+                        process(variable_dict, temp_code_block)
+                        continue
+                break
+        elif " = " in line:
             # we save that variable to global variable dict
             key, value = line.split(" = ")
             key, value = key.strip(), value.strip()
             if value.endswith(")"):
                 # it is a function call
                 an_element = handle_function_call(variable_dict, value, process)
+            elif value.startswith('"""'):
+                # it is a raw string, """could have no leading space in next line"""
+                long_text = ""
+                temp_index = line_index + 1
+                while temp_index < len(lines):
+                    temp_line = lines[temp_index]
+                    long_text += temp_line + "\n"
+                    if temp_line.endswith('"""'):
+                        break
+                    temp_index += 1
+                line_index = temp_index
+                an_element = Python_Element_Instance()
+                an_element.type = "string"
+                an_element.general_value = long_text[:-5]
             else:
                 # normal value
                 an_element = handle_one_line_operations(variable_dict, value)
@@ -196,7 +284,7 @@ def process(variable_dict, text_code):
 
         line_index += 1
 
-a_py_file_text = """
+a_py_file_text = '''
 parent_variable = "parent"
 print(parent_variable)
 
@@ -214,7 +302,7 @@ def a_function_2(temp_2):
     print(a_child_variable2)
     print(temp_2)
 
-a_function_2(temp_2=" haha ")
+a_function_2(temp_2=" haha ", temp_1="hi")
 print("is" + " right")
 
 a_dict = {a: 3}
@@ -233,6 +321,24 @@ def a_function_3(number_1, number_2):
 
 result1 = a_function_3(number_1=6, number_2=7)
 print(result1)
+
+long_text = """
+hi you,
+    dear.
 """
+
+print(long_text)
+
+
+a2 = 1
+b2 = 1
+print(a2 == b2)
+if a2 == b2:
+    print("a2 and b2 is equal")
+
+while a2 < 4:
+    print(a2)
+    a2 = a2 + 1
+'''
 
 process(global_variable_dict, a_py_file_text)
