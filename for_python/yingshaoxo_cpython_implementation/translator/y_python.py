@@ -114,6 +114,10 @@ def handle_one_line_operations(variable_dict, one_line_code):
         return an_element
     elif " != " in one_line_code:
         pass
+    #elif " and " in one_line_code: # cause parsing error, need to find a way to solve this problem
+    #    pass
+    #elif " or " in one_line_code:
+    #    pass
     else:
         return get_python_element_instance(variable_dict, one_line_code)
 
@@ -183,11 +187,11 @@ def process(variable_dict, text_code):
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
                 new_indents_number = len(temp_line) - len(temp_line.lstrip())
-                if new_indents_number != indents_number:
+                if temp_line.strip()!="" and new_indents_number < indents_number:
                     break
                 temp_code_block += temp_line + "\n"
                 temp_index += 1
-            line_index = temp_index
+            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
 
             verifying = if_line.split("if ")[1].split(":")[0]
             verifying = handle_one_line_operations(variable_dict, verifying)
@@ -205,12 +209,16 @@ def process(variable_dict, text_code):
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
                 new_indents_number = len(temp_line) - len(temp_line.lstrip())
-                if new_indents_number != indents_number:
+                if temp_line.strip()!="" and new_indents_number < indents_number:
                     break
                 temp_code_block += temp_line + "\n"
                 temp_index += 1
-            line_index = temp_index
+            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
 
+            an_element = Python_Element_Instance()
+            an_element.type = "bool"
+            an_element.general_value = False
+            variable_dict["___force_break_while_loop___"] = an_element
             while True:
                 verifying = while_line.split("while ")[1].split(":")[0]
                 verifying = handle_one_line_operations(variable_dict, verifying)
@@ -218,7 +226,10 @@ def process(variable_dict, text_code):
                 if verifying.type == "bool":
                     if verifying.general_value == True:
                         process(variable_dict, temp_code_block)
-                        continue
+                        if variable_dict["___force_break_while_loop___"].general_value == True:
+                            break
+                        else:
+                            continue
                 break
         elif " = " in line:
             # we save that variable to global variable dict
@@ -258,16 +269,17 @@ def process(variable_dict, text_code):
 
             #temp_index = line_index + 1 #try to save the function arguments, so not plus one
             temp_index = line_index
+            base_line = lines[temp_index+1]
+            indents_number = len(base_line) - len(base_line.lstrip())
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
-                if temp_line.strip() != "":
-                    function_code += temp_line + "\n"
-                else:
-                    end_of_a_function_new_line_counting += 1
-                if end_of_a_function_new_line_counting >= 1:
-                    break
+                function_code += temp_line + "\n"
                 temp_index += 1
-            line_index = temp_index - 1
+
+                temp_indents_number = len(lines[temp_index]) - len(lines[temp_index].lstrip())
+                if lines[temp_index].strip()!="" and temp_indents_number < indents_number:
+                    break
+            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
 
             an_element = Python_Element_Instance()
             an_element.type = "function"
@@ -281,6 +293,12 @@ def process(variable_dict, text_code):
             return_variable_name = line.split("return ")[1]
             return_variable_name = handle_one_line_operations(variable_dict, return_variable_name)
             return return_variable_name
+        elif line.strip() == "break":
+            an_element = Python_Element_Instance()
+            an_element.type = "bool"
+            an_element.general_value = True
+            variable_dict["___force_break_while_loop___"] = an_element
+            return Python_Element_Instance()
 
         line_index += 1
 
@@ -336,9 +354,11 @@ print(a2 == b2)
 if a2 == b2:
     print("a2 and b2 is equal")
 
-while a2 < 4:
+while a2 < 7:
     print(a2)
     a2 = a2 + 1
+    if a2 == 4:
+        break
 '''
 
 process(global_variable_dict, a_py_file_text)
