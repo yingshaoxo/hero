@@ -90,6 +90,38 @@ def handle_one_line_operations(variable_dict, one_line_code):
     else:
         return get_python_element_instance(variable_dict, one_line_code)
 
+def handle_function_call(variable_dict, one_line_code, process_function):
+    global global_variable_dict
+
+    line = one_line_code
+
+    function_name = line.split("(")[0]
+    function_arguments = line.split("(")[1].split(")")[0].strip()
+
+    if function_arguments != "" and ", " in function_arguments:
+        arguments_are_variable_dict = {one.split("=")[0]: handle_one_line_operations(variable_dict, one.split("=")[1]) for one in function_arguments.split(", ")}
+        # how to handle list arguments function(1,2,3) than function(a=b) is a problem here.
+    else:
+        arguments_are_variable_dict = {}
+
+    if (function_name in variable_dict) or (function_name in global_variable_dict):
+        if function_name in variable_dict:
+            an_element = variable_dict[function_name]
+        elif function_name in global_variable_dict:
+            an_element = global_variable_dict[function_name]
+        if an_element.type == "function":
+            local_dict_for_a_function = variable_dict.copy()
+            local_dict_for_a_function.update(arguments_are_variable_dict)
+            return process_function(local_dict_for_a_function, "\n".join(an_element.general_value.split("\n")[1:]))
+    elif function_name in global_variable_dict["__built_in_s__"]:
+        if function_name == "type":
+            an_element = Python_Element_Instance()
+            an_element.type = "string"
+            an_element.general_value = handle_one_line_operations(variable_dict, function_arguments).type
+            return an_element
+    else:
+        print("Error: no function called '" + function_name + "'")
+
 def general_print(an_element, end="\n"):
     if an_element.type == "list":
         print("[", end="")
@@ -118,7 +150,12 @@ def process(variable_dict, text_code):
             # we save that variable to global variable dict
             key, value = line.split(" = ")
             key, value = key.strip(), value.strip()
-            an_element = handle_one_line_operations(variable_dict, value)
+            if value.endswith(")"):
+                # it is a function call
+                an_element = handle_function_call(variable_dict, value, process)
+            else:
+                # normal value
+                an_element = handle_one_line_operations(variable_dict, value)
             an_element.name = key
             variable_dict[key] = an_element
         elif "print(" in line:
@@ -151,30 +188,11 @@ def process(variable_dict, text_code):
             variable_dict[function_name] = an_element
         elif (not line.startswith("def ")) and "(" in line and line.endswith(")"):
             # it is calling a function
-            function_name = line.split("(")[0]
-            function_arguments = line.split("(")[1].split(")")[0].strip()
-
-            if function_arguments != "" and ", " in function_arguments:
-                arguments_are_variable_dict = {one.split("=")[0]: handle_one_line_operations(variable_dict, one.split("=")[1]) for one in function_arguments.split(", ")}
-                # how to handle list arguments function(1,2,3) than function(a=b) is a problem here.
-            else:
-                arguments_are_variable_dict = {}
-
-            if (function_name in variable_dict) or (function_name in global_variable_dict):
-                if function_name in variable_dict:
-                    an_element = variable_dict[function_name]
-                elif function_name in global_variable_dict:
-                    an_element = global_variable_dict[function_name]
-                if an_element.type == "function":
-                    local_dict_for_a_function = variable_dict.copy()
-                    local_dict_for_a_function.update(arguments_are_variable_dict)
-                    process(local_dict_for_a_function, "\n".join(an_element.general_value.split("\n")[1:]))
-            elif function_name in global_variable_dict["__built_in_s__"]:
-                if function_name == "type":
-                    print(handle_one_line_operations(variable_dict, function_arguments).type)
-                    # this just remain me one thing, I do not know how to let my function return a value...
-            else:
-                print("Error: no function called '" + function_name + "'")
+            handle_function_call(variable_dict, line, process)
+        elif line.strip().startswith("return "):
+            return_variable_name = line.split("return ")[1]
+            return_variable_name = handle_one_line_operations(variable_dict, return_variable_name)
+            return return_variable_name
 
         line_index += 1
 
@@ -207,7 +225,14 @@ print(a_list)
 
 print(2 + 3)
 
-type(2)
+a_type = type(2)
+print(a_type)
+
+def a_function_3(number_1, number_2):
+    return number_1 + number_2
+
+result1 = a_function_3(number_1=6, number_2=7)
+print(result1)
 """
 
 process(global_variable_dict, a_py_file_text)
