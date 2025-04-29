@@ -122,13 +122,25 @@ def handle_one_line_operations(variable_dict, one_line_code):
     else:
         return get_python_element_instance(variable_dict, one_line_code)
 
-def handle_function_call(variable_dict, one_line_code, process_function):
+def handle_function_call(variable_dict, one_line_code, process_function, class_instance=None):
     global global_variable_dict
-
     line = one_line_code
 
     function_name = line.split("(")[0]
     function_arguments = line.split("(")[1].split(")")[0].strip()
+
+    if "." in function_name:
+        # might be class function call
+        class_instance_name = function_name.split(".")[0]
+        function_name = function_name.split(".")[1]
+        if (class_instance_name in variable_dict) or (class_instance_name in global_variable_dict):
+            class_instance = variable_dict.get(class_instance_name)
+            if class_instance == None:
+                class_instance = global_variable_dict.get(class_instance_name)
+            return handle_function_call(class_instance.general_value["properties"], one_line_code[len(class_instance_name)+1:], process_function, class_instance=class_instance)
+        else:
+            print("Error: no class_instance called '" + class_instance_name + "'")
+            return Python_Element_Instance()
 
     arguments_are_variable_dict = {}
     if function_arguments != "":
@@ -148,10 +160,18 @@ def handle_function_call(variable_dict, one_line_code, process_function):
         elif function_name in global_variable_dict:
             an_element = global_variable_dict[function_name]
         if an_element.type == "function":
-            local_dict_for_a_function = variable_dict.copy()
+            if class_instance != None:
+                # function call in class, so we drop all other property except 'self'
+                local_dict_for_a_function = {"self": variable_dict["self"]}
+            else:
+                local_dict_for_a_function = variable_dict.copy()
 
             function_defined_arguments_line = an_element.general_value.split("\n")[0].split("(")[1].split(")")[0]
             defined_list_of_arguments = function_defined_arguments_line.split(", ")
+            if class_instance != None:
+                # handle the keyword 'self' in class function
+                local_dict_for_a_function["self"] = class_instance
+                defined_list_of_arguments = defined_list_of_arguments[1:]
             for index in range(len(defined_list_of_arguments)):
                 key = defined_list_of_arguments[index]
                 value = None
@@ -171,6 +191,17 @@ def handle_function_call(variable_dict, one_line_code, process_function):
 
             real_code = "\n".join(an_element.general_value.split("\n")[1:])
             return process_function(local_dict_for_a_function, real_code)
+        elif an_element.type == "class":
+            new_element = Python_Element_Instance()
+            new_element.type = "class_instance"
+            new_element.general_value = {
+                "class_name": an_element.name,
+                "properties": {
+                    "self": new_element
+                }
+            }
+            process_function(new_element.general_value["properties"], an_element.general_value)
+            return new_element
     elif function_name in global_variable_dict["__built_in_s__"]:
         if function_name == "type":
             an_element = Python_Element_Instance()
@@ -179,6 +210,7 @@ def handle_function_call(variable_dict, one_line_code, process_function):
             return an_element
     else:
         print("Error: no function called '" + function_name + "'")
+        return Python_Element_Instance()
 
 def general_print(an_element, end="\n"):
     if "type" in dir(an_element):
@@ -265,33 +297,54 @@ def process(variable_dict, text_code):
             # we save that variable to global variable dict
             key, value = line.split(" = ")
             key, value = key.strip(), value.strip()
-            if value.endswith(")"):
-                # it is a function call
-                an_element = handle_function_call(variable_dict, value, process)
-            elif value.startswith('"""'):
-                # it is a raw string, """could have no leading space in next line"""
-                long_text = ""
-                temp_index = line_index + 1
-                while temp_index < len(lines):
-                    temp_line = lines[temp_index]
-                    long_text += temp_line + "\n"
-                    if temp_line.endswith('"""'):
-                        break
-                    temp_index += 1
-                line_index = temp_index
-                an_element = Python_Element_Instance()
-                an_element.type = "string"
-                an_element.general_value = long_text[:-5]
+            if "." in key:
+                # class_instance assignment
+                class_instance_name = key.split(".")[0]
+                class_instance_property_name = key.split(".")[1]
+                if class_instance_name in variable_dict.keys():
+                    class_instance = variable_dict[class_instance_name]
+                    if class_instance.type == "class_instance":
+                        if value.endswith(")"):
+                            class_instance.general_value["properties"][class_instance_property_name] = handle_function_call(variable_dict, value, process)
+                        else:
+                            class_instance.general_value["properties"][class_instance_property_name] = handle_one_line_operations(variable_dict, value)
+
+            elif "." in value and not value.endswith(")"):
+                # class_instance assignment
+                class_instance_name = value.split(".")[0]
+                class_instance_property_name = value.split(".")[1]
+                if class_instance_name in variable_dict.keys():
+                    class_instance = variable_dict[class_instance_name]
+                    if class_instance.type == "class_instance":
+                        variable_dict[key] = class_instance.general_value["properties"][class_instance_property_name]
             else:
-                # normal value
-                an_element = handle_one_line_operations(variable_dict, value)
-            an_element.name = key
-            variable_dict[key] = an_element
+                if value.endswith(")"):
+                    # it is a function call
+                    an_element = handle_function_call(variable_dict, value, process)
+                elif value.startswith('"""'):
+                    # it is a raw string, """could have no leading space in next line"""
+                    long_text = ""
+                    temp_index = line_index + 1
+                    while temp_index < len(lines):
+                        temp_line = lines[temp_index]
+                        long_text += temp_line + "\n"
+                        if temp_line.endswith('"""'):
+                            break
+                        temp_index += 1
+                    line_index = temp_index
+                    an_element = Python_Element_Instance()
+                    an_element.type = "string"
+                    an_element.general_value = long_text[:-5]
+                else:
+                    # normal value
+                    an_element = handle_one_line_operations(variable_dict, value)
+                an_element.name = key
+                variable_dict[key] = an_element
         elif "print(" in line:
             key = line.split("print(")[1].split(")")[0]
             value_instance = handle_one_line_operations(variable_dict, key)
             general_print(value_instance)
-        elif line.startswith("def "):
+        elif line.strip().startswith("def "):
             # it is a function, we should save it in somewhere
             function_name = line.split("def ")[1].split("(")[0]
             function_code = ""
@@ -306,6 +359,9 @@ def process(variable_dict, text_code):
                 function_code += temp_line + "\n"
                 temp_index += 1
 
+                if temp_index >= len(lines):
+                    break
+
                 temp_indents_number = len(lines[temp_index]) - len(lines[temp_index].lstrip())
                 if lines[temp_index].strip()!="" and temp_indents_number < indents_number:
                     break
@@ -319,6 +375,27 @@ def process(variable_dict, text_code):
         elif (not line.startswith("def ")) and "(" in line and line.endswith(")"):
             # it is calling a function
             handle_function_call(variable_dict, line, process)
+        elif line.strip().startswith("class "):
+            class_name = line.split("class ")[1].split(":")[0].split("()")[0].strip()
+
+            temp_index = line_index + 1
+            temp_code_block = ""
+            base_line = lines[temp_index]
+            indents_number = len(base_line) - len(base_line.lstrip())
+            while temp_index < len(lines):
+                temp_line = lines[temp_index]
+                new_indents_number = len(temp_line) - len(temp_line.lstrip())
+                if temp_line.strip()!="" and new_indents_number < indents_number:
+                    break
+                temp_code_block += temp_line + "\n"
+                temp_index += 1
+            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
+
+            an_element = Python_Element_Instance()
+            an_element.type = "class"
+            an_element.name = class_name
+            an_element.general_value = temp_code_block
+            variable_dict[class_name] = an_element
         elif line.strip().startswith("return "):
             return_variable_name = line.split("return ")[1]
             return_variable_name = handle_one_line_operations(variable_dict, return_variable_name)
@@ -390,6 +467,35 @@ while a2 < 7:
     a2 = a2 + 1
     if a2 == 4:
         break
+
+class A_Class():
+    def hi(self):
+        print("yingshaoxo:")
+
+    def hi2(self, words):
+        print(words)
+        return "you"
+
+    def hi3(self):
+        self.a_variable = 222
+        local_variable = 666
+
+    def hi4(self):
+        a_test2 = self.a_variable
+        a_test2 = a_test2 + 1
+        print(a_test2)
+        print(local_variable)
+
+a_class = A_Class()
+a_class.hi()
+result = a_class.hi2(words="hi")
+print(result)
+
+a_class.hi3()
+result2 = a_class.a_variable
+print(result2)
+
+a_class.hi4()
 '''
 
 process(global_variable_dict, a_py_file_text)
