@@ -232,6 +232,16 @@ int main()
         ypython_print("Error: startswith not work");
     }
 
+    //////////////////////////////////////////////////////
+    
+    print_seperator("endswith Test");
+
+    a_string_10 = Ypython_String("yingshaoxo");
+    a_string_11 = Ypython_String("xo");
+    if (!a_string_10->function_endswith(a_string_10, a_string_11)) {
+        ypython_print("Error: endswith not work");
+    }
+
 
     //////////////////////////////////////////////////////
     

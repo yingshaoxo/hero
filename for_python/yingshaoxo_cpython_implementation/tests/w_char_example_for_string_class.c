@@ -1,3 +1,7 @@
+// yingshaoxo:
+// Why to support some languages that you can't even input?
+// The utf-8 chracter are actually bytes, process them like english words, show single character as pictures, just like what you do in micro_controller hardware project with led points.
+//
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>

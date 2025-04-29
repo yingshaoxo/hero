@@ -501,6 +501,7 @@ struct Type_Ypython_String {
     //Type_Ypython_String *(*function_join)(Type_Ypython_String *self, Type_Ypython_List *string_list, Type_Ypython_String *seperator_string);
     Type_Ypython_String *(*function_strip)(Type_Ypython_String *self, Type_Ypython_String *characters);
     bool (*function_startswith)(Type_Ypython_String *self, Type_Ypython_String *a_string);
+    bool (*function_endswith)(Type_Ypython_String *self, Type_Ypython_String *a_string);
     long long (*function_length)(Type_Ypython_String *self);
     bool (*function_is_substring)(Type_Ypython_String *self, Type_Ypython_String *a_string);
     Type_Ypython_String *(*function_substring)(Type_Ypython_String *self, long long start_index, long long end_index);
@@ -682,6 +683,28 @@ bool Type_Ypython_String_startswith(Type_Ypython_String *self, Type_Ypython_Stri
     return true;
 }
 
+bool Type_Ypython_String_endswith(Type_Ypython_String *self, Type_Ypython_String *a_string) {
+    char *str = self->value;
+    char *tail = a_string->value;
+
+    int str_length = strlen(str);
+    int tail_length = strlen(tail);
+
+    if (str_length < tail_length) {
+        return false;
+    }
+
+    int another_i = str_length - 1;
+    for (int i = tail_length-1; i >= 0 ; i--) {
+        if (str[another_i] != tail[i]) {
+            return false;
+        }
+        another_i = another_i - 1;
+    }
+
+    return true;
+}
+
 Type_Ypython_String *Ypython_String(char *value) {
     Type_Ypython_String *new_string_value;
     new_string_value = (Type_Ypython_String *)malloc(sizeof(Type_Ypython_String));
@@ -695,12 +718,13 @@ Type_Ypython_String *Ypython_String(char *value) {
 
     new_string_value->function_add = &Type_Ypython_String_add;
     new_string_value->function_is_equal = &Type_Ypython_String_is_equal;
-    //new_string_value->function_split = &Type_Ypython_String_split;
+    //new_string_value->function_split = &Type_Ypython_String_split; // I want to use this, but hit errors
     //new_string_value->function_join = &Type_Ypython_String_join;
     new_string_value->function_substring = &Type_Ypython_String_substring;
     new_string_value->function_is_substring = &Type_Ypython_String_is_substring;
     new_string_value->function_strip = &Type_Ypython_String_strip;
     new_string_value->function_startswith = &Type_Ypython_String_startswith;
+    new_string_value->function_endswith = &Type_Ypython_String_endswith;
 
     return new_string_value;
 }
