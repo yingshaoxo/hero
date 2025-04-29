@@ -7,7 +7,8 @@ global_variable_dict = {
 
 class Python_Element_Instance():
     def __init__(self):
-        # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class(a_dict{propertys:dict(), functions:dict()})
+        # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
+        # it is quite hard to implement the "xx.yy()" stuff, I do not know how to do it yet, so the class is not implemented
         self.type = "None"
         self.name = None # variable name, function name, class name
         self.general_value = None # in c, it is Ypython_General()
@@ -129,11 +130,17 @@ def handle_function_call(variable_dict, one_line_code, process_function):
     function_name = line.split("(")[0]
     function_arguments = line.split("(")[1].split(")")[0].strip()
 
-    if function_arguments != "" and ", " in function_arguments:
-        arguments_are_variable_dict = {one.split("=")[0]: handle_one_line_operations(variable_dict, one.split("=")[1]) for one in function_arguments.split(", ")}
-        # how to handle list arguments function(1,2,3) than function(a=b) is a problem here.
-    else:
-        arguments_are_variable_dict = {}
+    arguments_are_variable_dict = {}
+    if function_arguments != "":
+        for index, one in enumerate(function_arguments.split(", ")):
+            if "=" in one:
+                key = one.split("=")[0]
+                value = one.split("=")[1]
+                value = handle_one_line_operations(variable_dict, value)
+            else:
+                key = "___argument"+str(index)
+                value = handle_one_line_operations(variable_dict, one)
+            arguments_are_variable_dict[key] = value
 
     if (function_name in variable_dict) or (function_name in global_variable_dict):
         if function_name in variable_dict:
@@ -142,8 +149,28 @@ def handle_function_call(variable_dict, one_line_code, process_function):
             an_element = global_variable_dict[function_name]
         if an_element.type == "function":
             local_dict_for_a_function = variable_dict.copy()
-            local_dict_for_a_function.update(arguments_are_variable_dict)
-            return process_function(local_dict_for_a_function, "\n".join(an_element.general_value.split("\n")[1:]))
+
+            function_defined_arguments_line = an_element.general_value.split("\n")[0].split("(")[1].split(")")[0]
+            defined_list_of_arguments = function_defined_arguments_line.split(", ")
+            for index in range(len(defined_list_of_arguments)):
+                key = defined_list_of_arguments[index]
+                value = None
+                if "=" in key:
+                    # set pre_defined key and value to local_variable_dict first
+                    key = key.split("=")[0].strip()
+                    value = key.split("=")[1].strip()
+                    local_dict_for_a_function.update({key: value})
+                if key in arguments_are_variable_dict.keys():
+                    # use new arguments from function call command
+                    value = arguments_are_variable_dict.get(key)
+                    local_dict_for_a_function.update({key: value})
+                if key not in arguments_are_variable_dict.keys():
+                    # set arguments by indexing
+                    value = arguments_are_variable_dict.get("___argument"+str(index))
+                    local_dict_for_a_function.update({key: value})
+
+            real_code = "\n".join(an_element.general_value.split("\n")[1:])
+            return process_function(local_dict_for_a_function, real_code)
     elif function_name in global_variable_dict["__built_in_s__"]:
         if function_name == "type":
             an_element = Python_Element_Instance()
@@ -154,20 +181,23 @@ def handle_function_call(variable_dict, one_line_code, process_function):
         print("Error: no function called '" + function_name + "'")
 
 def general_print(an_element, end="\n"):
-    if an_element.type == "list":
-        print("[", end="")
-        for index, temp_element in enumerate(an_element.general_value):
-            general_print(temp_element, end="")
-            if index != len(an_element.general_value)-1:
-                print(", ", end="")
-        print("]", end="\n")
-    elif an_element.type == "dict":
-        for temp_element_key, temp_element_value in an_element.general_value.items():
-            print(temp_element_key, end="")
-            print(": ", end="")
-            general_print(temp_element_value)
+    if "type" in dir(an_element):
+        if an_element.type == "list":
+            print("[", end="")
+            for index, temp_element in enumerate(an_element.general_value):
+                general_print(temp_element, end="")
+                if index != len(an_element.general_value)-1:
+                    print(", ", end="")
+            print("]", end="\n")
+        elif an_element.type == "dict":
+            for temp_element_key, temp_element_value in an_element.general_value.items():
+                print(temp_element_key, end="")
+                print(": ", end="")
+                general_print(temp_element_value)
+        else:
+            print(an_element.general_value, end=end)
     else:
-        print(an_element.general_value, end=end)
+        print(an_element)
 
 def process(variable_dict, text_code):
     # handle code, mainly just for codes inside of a function
@@ -314,13 +344,14 @@ def a_function_1():
 a_function_1()
 print(a_child_variable)
 
-def a_function_2(temp_2):
+def a_function_2(temp_2, temp3):
     temp_1 = " you say"
     a_child_variable2 = "whatever" + temp_1
     print(a_child_variable2)
     print(temp_2)
+    print(temp3)
 
-a_function_2(temp_2=" haha ", temp_1="hi")
+a_function_2("nice", temp3="yeah")
 print("is" + " right")
 
 a_dict = {a: 3}
