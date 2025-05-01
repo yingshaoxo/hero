@@ -1580,6 +1580,7 @@ struct Type_Ypython_Dict {
 
     void (*function_set)(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value);
     Type_Ypython_General *(*function_get)(Type_Ypython_Dict *self, Type_Ypython_String *a_key);
+    bool (*function_has_key)(Type_Ypython_Dict *self, Type_Ypython_String *a_key);
 };
 
 void Type_Ypython_Dict_set(Type_Ypython_Dict *self, Type_Ypython_String *a_key, Type_Ypython_General *a_value) {
@@ -1634,6 +1635,31 @@ Type_Ypython_General *Type_Ypython_Dict_get(Type_Ypython_Dict *self, Type_Ypytho
     }
 }
 
+bool Type_Ypython_Dict_has_key(Type_Ypython_Dict *self, Type_Ypython_String *a_key) {
+    if (self->is_none) {
+        return false;
+    } 
+
+    if (self->keys == NULL || self->values == NULL) {
+        return false;
+    }
+
+    Type_Ypython_General *the_key = Ypython_General();
+    the_key->string_ = a_key;
+
+    Type_Ypython_Int *index = self->keys->function_index(self->keys, the_key);
+
+    if (index->is_none) {
+        // we don't have this key in this dict, return none
+        return false;
+    } else {
+        // we have this key in this dict, return the value
+        return true;
+    }
+}
+
+bool (*function_has_key)(Type_Ypython_Dict *self, Type_Ypython_String *a_key);
+
 Type_Ypython_Dict *Ypython_Dict() {
     Type_Ypython_Dict *new_value;
     new_value = (Type_Ypython_Dict *)malloc(sizeof(Type_Ypython_Dict));
@@ -1646,6 +1672,7 @@ Type_Ypython_Dict *Ypython_Dict() {
 
     new_value->function_set = &Type_Ypython_Dict_set;
     new_value->function_get = &Type_Ypython_Dict_get;
+    new_value->function_has_key = &Type_Ypython_Dict_has_key;
 
     return new_value;
 }

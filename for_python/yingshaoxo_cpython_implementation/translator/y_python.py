@@ -24,6 +24,7 @@ def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
             a_element.general_value = a_variable_name_or_raw_value[1:-1]
         elif a_variable_name_or_raw_value.replace(".","").isdigit():
             # it is a number
+            # is_digit: use xx.strip("0123456789.") == "" could also do the job
             if "." in a_variable_name_or_raw_value:
                 # it is float
                 a_element.type = "float"

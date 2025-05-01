@@ -199,6 +199,13 @@ int main()
     Type_Ypython_String *the_key_8 = Ypython_String("404 censorship");
     a_dict->function_set(a_dict, the_key_8, general_variable_9);
 
+    if (a_dict->function_has_key(a_dict, the_key_8)) {
+        ypython_print("The function_has_key works.");
+    }
+    if (a_dict->function_has_key(a_dict, Ypython_String("hhh"))) {
+        ypython_print("The function_has_key not work.");
+    }
+
     a_dict->keys->function_start_iteration(a_dict->keys);
     ypython_print("dict loop start----\n");
     while (a_dict->keys->iteration_not_done) {
