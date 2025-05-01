@@ -892,6 +892,7 @@ struct Type_Ypython_General {
     Type_Ypython_String *string_;
     Type_Ypython_List *list_;
     Type_Ypython_Dict *dict_;
+    void *anything_;
 
     bool (*function_is_equal)(Type_Ypython_General *element_1, Type_Ypython_General *element_2);
 };
@@ -978,6 +979,7 @@ Type_Ypython_General *Ypython_General() {
     new_value->string_ = NULL;
     new_value->list_ = NULL;
     new_value->dict_ = NULL;
+    new_value->anything_ = NULL;
 
     new_value->function_is_equal = &Type_Ypython_General_is_equal;
 
@@ -1702,6 +1704,8 @@ Type_Ypython_General *_Ypython_copy_general_variable(Type_Ypython_General *value
                 }
             }
         }
+    } else if (value->anything_ != NULL) {
+        new_value->anything_ = value->anything_;
     }
     
     return new_value;
@@ -1721,6 +1725,7 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
     new_value->string_ = NULL;
     new_value->list_ = NULL;
     new_value->dict_ = NULL;
+    new_value->anything_ = NULL;
     new_value->function_is_equal = &Type_Ypython_General_is_equal;
 
     if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
@@ -1756,6 +1761,8 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
                 new_value->dict_->function_set(new_value->dict_, the_key, the_value);
             }
         }
+    } else if (value != NULL) {
+        new_value->anything_ = value;
     }
 
     return new_value;
@@ -1765,46 +1772,63 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
 Type_Ypython_List *ypython_string_type_function_split(Type_Ypython_String *self, Type_Ypython_String *seperator_string) {
     Type_Ypython_List *result_list = Ypython_List();
 
-    char *str = ypython_string_copy(self->value);
-    const char *delimiter = ypython_string_copy(seperator_string->value);
+    if (seperator_string == NULL) {
+        // we should split the string into characters
+        long long index = 0; 
+        while (index < self->length) {
+            char *character_string = malloc(sizeof(char) * 2);
+            character_string[0] = self->value[index];
+            character_string[1] = '\0';
+            Type_Ypython_String *a_character_string = Ypython_String(character_string);
+            Type_Ypython_General *an_element = Ypython_General();
+            an_element->string_ = a_character_string; 
+            result_list->function_append(result_list, an_element);
 
-    int str_len = strlen(str);
-    int delim_len = strlen(delimiter);
-    
-    char* temp_string = _ypython_memory_allocation_for_data((sizeof(char) * str_len) + 1);
-    int temp_string_index = 0;
-    for (int i = 0; i < str_len; i++) {
-        int match = 1;
-        for (int j = 0; j < delim_len; j++) {
-            if (str[i + j] != delimiter[j]) {
-                match = 0;
-                break;
+            index += 1;
+        }
+    } else {
+        // normal split
+        char *str = ypython_string_copy(self->value);
+        const char *delimiter = ypython_string_copy(seperator_string->value);
+
+        int str_len = strlen(str);
+        int delim_len = strlen(delimiter);
+        
+        char* temp_string = _ypython_memory_allocation_for_data((sizeof(char) * str_len) + 1);
+        int temp_string_index = 0;
+        for (int i = 0; i < str_len; i++) {
+            int match = 1;
+            for (int j = 0; j < delim_len; j++) {
+                if (str[i + j] != delimiter[j]) {
+                    match = 0;
+                    break;
+                }
+            }
+            
+            if (match) {
+                temp_string[temp_string_index] = '\0';
+
+                Type_Ypython_String *new_string = Ypython_String(temp_string);
+                Type_Ypython_General *a_general_variable = Ypython_General();
+                a_general_variable->string_ = new_string;
+                result_list->function_append(result_list, a_general_variable);
+
+                temp_string_index = 0;
+                i += delim_len - 1;
+            } else {
+                temp_string[temp_string_index] = str[i];
+                temp_string_index += 1;
             }
         }
-        
-        if (match) {
+
+        if (temp_string_index != 0) {
             temp_string[temp_string_index] = '\0';
 
             Type_Ypython_String *new_string = Ypython_String(temp_string);
             Type_Ypython_General *a_general_variable = Ypython_General();
             a_general_variable->string_ = new_string;
             result_list->function_append(result_list, a_general_variable);
-
-            temp_string_index = 0;
-            i += delim_len - 1;
-        } else {
-            temp_string[temp_string_index] = str[i];
-            temp_string_index += 1;
         }
-    }
-
-    if (temp_string_index != 0) {
-        temp_string[temp_string_index] = '\0';
-
-        Type_Ypython_String *new_string = Ypython_String(temp_string);
-        Type_Ypython_General *a_general_variable = Ypython_General();
-        a_general_variable->string_ = new_string;
-        result_list->function_append(result_list, a_general_variable);
     }
     
     return result_list;
@@ -1825,7 +1849,24 @@ void ypython_raw_print(void *value)
         return;
     }
 
-    if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
+    if (strcmp(((Type_Ypython_General *)value)->type, "general") == 0) {
+        Type_Ypython_General *item = (Type_Ypython_General *)value;
+        if (item->string_ != NULL) {
+            ypython_raw_print(item->string_);
+        } else if (item->bool_ != NULL) {
+            ypython_raw_print(item->bool_);
+        } else if (item->int_ != NULL) {
+            ypython_raw_print(item->int_);
+        } else if (item->float_ != NULL) {
+            ypython_raw_print(item->float_);
+        } else if (item->list_ != NULL) {
+            ypython_raw_print(item->list_);
+        } else if (item->dict_ != NULL) {
+            ypython_raw_print(item->dict_);
+        } else if (item->anything_ != NULL) {
+            ypython_raw_print(Ypython_String("anything_"));
+        }
+    } else if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
         Type_Ypython_String *str = (Type_Ypython_String *)value;
         // Print the string directly, allowing newlines to be interpreted
         printf("%s", str->value);

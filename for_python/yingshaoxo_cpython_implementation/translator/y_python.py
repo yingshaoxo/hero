@@ -8,7 +8,6 @@ global_variable_dict = {
 class Python_Element_Instance():
     def __init__(self):
         # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
-        # it is quite hard to implement the "xx.yy()" stuff, I do not know how to do it yet, so the class is not implemented
         self.type = "None"
         self.name = None # variable name, function name, class name
         self.general_value = None # in c, it is Ypython_General()

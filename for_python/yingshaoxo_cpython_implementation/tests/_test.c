@@ -247,7 +247,7 @@ int main()
     
     print_seperator("strip Test");
 
-    Type_Ypython_String *a_string_12 = Ypython_String("    yingshaoxo2  ");
+    Type_Ypython_String *a_string_12 = Ypython_String("    yingshaoxo22  ");
     Type_Ypython_String *a_string_13 = Ypython_String(" 2y");
     ypython_print(a_string_12->function_strip(a_string_12, a_string_13)->value);
 
@@ -283,6 +283,8 @@ int main()
             ypython_print(temp->string_->value);
         }
     }
+
+    ypython_raw_print(ypython_string_type_function_split(Ypython_String("yingshaoxo"), NULL));
 
     //////////////////////////////////////////////////////
     
