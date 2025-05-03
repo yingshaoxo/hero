@@ -201,6 +201,9 @@ def handle_function_call(variable_dict, one_line_code, process_function, class_i
                 }
             }
             process_function(new_element.general_value["properties"], an_element.general_value)
+            if "__init__" in new_element.general_value["properties"]:
+                # run the __init__ function when we create a class instance
+                handle_function_call(new_element.general_value["properties"], "__init__(self)", process_function, class_instance=new_element)
             return new_element
     elif function_name in global_variable_dict["__built_in_s__"]:
         if function_name == "type":
@@ -469,7 +472,13 @@ while a2 < 7:
         break
 
 class A_Class():
+    def __init__(self):
+        print("class instance creating...")
+        self.pre_defined_variable = "variable created in class creation"
+
     def hi(self):
+        temp = self.pre_defined_variable
+        print(temp)
         print("yingshaoxo:")
 
     def hi2(self, words):
