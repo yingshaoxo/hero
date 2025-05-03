@@ -76,9 +76,9 @@ void process(Type_Ypython_String *text_code) {
                 
                 if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
                     Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
-                    ypython_print(an_element->general_value->string_->value);
+                    ypython_print(an_element->general_value->string_);
                 } else {
-                    //ypython_print(variable_name->value);
+                    //ypython_print(variable_name);
                 }
             } else if (a_line->function_is_substring(a_line, Ypython_String("def "))) {
                 // Handle function definition
@@ -123,7 +123,7 @@ void process(Type_Ypython_String *text_code) {
                 if ((an_general_value != NULL) && (!an_general_value->is_none)) {
                     Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->general_value);
                     if ((function_body_general != NULL) && (!function_body_general->is_none)) {
-                        //ypython_print(function_body_general->string_->value);
+                        //ypython_print(function_body_general->string_);
                         process(function_body_general->string_);
                     }
                 }
@@ -175,8 +175,8 @@ int main(int argument_number, char **argument_list) {
         Type_Ypython_String *file_path = Ypython_String(argument_list[1]);
 
         if ((!ypython_disk_exists(file_path->value)) || (ypython_disk_is_folder(file_path->value))) {
-            ypython_print(file_path->value);
-            ypython_print("Make sure your python file exists!");
+            ypython_print(file_path);
+            ypython_print(Ypython_String("Make sure your python file exists!"));
             exit(1);
         }
 

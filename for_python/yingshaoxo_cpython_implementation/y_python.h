@@ -391,10 +391,12 @@ void ypython_run(const char *bash_command_line)
 /*
 Python_like print function.
 */
-void ypython_print(const char *text)
+void ypython_raw_print(void *value); //function pre_define
+void ypython_print(void *text)
 {
-
-    printf("%s\n", text);
+    //printf("%s\n", (char *)text);
+    ypython_raw_print(text);
+    printf("%s", "\n");
 }
 /*
 void ypython_print(const char *text, ...)
@@ -1928,6 +1930,8 @@ void ypython_raw_print(void *value)
                     ypython_raw_print(item->list_);
                 } else if (item->dict_ != NULL) {
                     ypython_raw_print(item->dict_);
+                } else if (item->anything_ != NULL) {
+                    ypython_raw_print(Ypython_String("anything_"));
                 }
                 if (i < list_val->length - 1) {
                     printf(", ");
@@ -1956,6 +1960,8 @@ void ypython_raw_print(void *value)
                     ypython_raw_print(the_value->list_);
                 } else if (the_value->dict_ != NULL) {
                     ypython_raw_print(the_value->dict_);
+                } else if (the_value->anything_ != NULL) {
+                    ypython_raw_print(Ypython_String("anything_"));
                 }
                 if (i < dict_val->keys->length - 1) {
                     printf(", ");
@@ -1965,6 +1971,7 @@ void ypython_raw_print(void *value)
         printf("}");
     } else if (strcmp(((Type_Ypython_None *)value)->type, "none") == 0) {
         printf("None");
+    } else {
     }
 }
 
