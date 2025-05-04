@@ -136,6 +136,14 @@ Error: no variable called 'local_variable'
 
 ### 2. Then write another python script that could parse y_python.py, and convert it into c99 code. If you can convert it to golang or vlang, it is also OK. But you have to make sure the final compiled program is runable in 2005 years old linux, for example, ubuntu8. Let's call the final compiled program "y_python.run".
 
-### 3. Now, upgrade "y_python.py" to let it has the ability to convert python code into c99. So you can use it like "./y_python.run test.py -o test.run"
+It is similar to what cython_to_c did, but the base c library is y_python.h
+
+### 3. Now, upgrade "y_python.py" to let it has the ability to convert python code into c99. So you can use it like "./y_python.run test.py -o test.c" or "./y_python.run test.py"
+
+Where "./y_python.run test.py -o test.c" can output a c99 version of the text.py file.
+
+Where "./y_python.run test.py" can parse and run the text.py file in real time.
 
 ### 4. You are actually getting rid of the original python dependencies, because the original python is at least 100 MB bigger, but your new program "y_python.run" only has 512KB and can convert many simple python script into c99 code. Including itself, I mean, the original "y_python.py".
+
+### 5. Then you have to consider where can you get a static version of gcc or tinycc for linux, so that you can compile c99 code in 2005 year old ubuntu8 linux system without network.
