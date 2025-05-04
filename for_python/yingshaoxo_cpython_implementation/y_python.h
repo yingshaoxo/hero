@@ -1863,6 +1863,19 @@ Type_Ypython_List *ypython_string_type_function_split(Type_Ypython_String *self,
     return result_list;
 }
 
+Type_Ypython_String *ypython_string_type_function_join(Type_Ypython_List *a_string_list, Type_Ypython_String *seperator_string) {
+    Type_Ypython_String *result = Ypython_String("");
+
+    long long last_minus_1 = a_string_list->length - 1;
+    for (long long i = 0; i < a_string_list->length; i++) {
+        result = result->function_add(result, a_string_list->function_get(a_string_list, i)->string_);
+        if (i < last_minus_1) {
+            result = result->function_add(result, seperator_string);
+        }
+    }
+
+    return result;
+}
 
 /*
 It should print out variable without new line unless user add '\n'
