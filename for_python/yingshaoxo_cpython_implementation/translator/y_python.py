@@ -353,21 +353,19 @@ def process(variable_dict, text_code):
             function_code = ""
             end_of_a_function_new_line_counting = 0
 
-            #temp_index = line_index + 1 #try to save the function arguments, so not plus one
-            temp_index = line_index
-            base_line = lines[temp_index+1]
+            function_code += lines[line_index] + "\n" #try to save the function arguments
+            temp_index = line_index + 1
+            base_line = lines[temp_index]
             indents_number = len(base_line) - len(base_line.lstrip())
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
-                function_code += temp_line + "\n"
-                temp_index += 1
-
-                if temp_index >= len(lines):
-                    break
 
                 temp_indents_number = len(lines[temp_index]) - len(lines[temp_index].lstrip())
                 if lines[temp_index].strip()!="" and temp_indents_number < indents_number:
                     break
+
+                function_code += temp_line + "\n"
+                temp_index += 1
             line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
 
             an_element = Python_Element_Instance()
