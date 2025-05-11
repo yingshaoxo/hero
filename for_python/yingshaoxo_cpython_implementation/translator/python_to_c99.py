@@ -68,10 +68,11 @@ class Python_Element_Instance():
         self.name = None # variable name, function name, class name
         self.general_value = None # in c, it is Ypython_General()
 
-        self.is_in_global_level = True
         self.translated_code = ""
         self.translated_code_for_definition = ""
         self.translated_code_for_real_part = ""
+
+        self.information = {}
 
 def process_code(variable_dict, code_text, level=0):
     # level 0 means in global level
@@ -82,16 +83,73 @@ def process_code(variable_dict, code_text, level=0):
     original_code_text = code_text
     code_text = code_text.strip()
 
-    if code_text.startswith("{") and code_text.endswith("}"):
+    if code_text.startswith('"') and code_text.endswith('"'):
+        # it is a string
+        default_element.type = "string"
+        default_element.general_value = code_text
+        default_element.translated_code = 'Ypython_String({raw_string})'.format(raw_string=default_element.general_value)
+        return default_element
+    elif code_text.startswith("[") and code_text.endswith("]"):
+        # it is a list
+        inner_code_text = code_text[1:-1]
+        index = 0
+        elements_list = []
+        a_element_string = ""
+        while index < len(inner_code_text):
+            # the hard part here is to avoid handling "," in '', "", [], {}.
+            character = inner_code_text[index]
+            if character == ",":
+                elements_list.append(str(a_element_string.strip()))
+                a_item_string = ""
+            a_element_string += character
+            index += 1
+        elements_list.append(str(a_element_string.strip()))
+
+        more_translated_code = "Type_Ypython_List *{{key}}_list_{level} = Ypython_List();\n".format(level=level)
+        for element in elements_list:
+            real_element = process_code(variable_dict, element, level=level+1)
+            if real_element.type == "string":
+                more_translated_code += "{{key}}_list_{level}->function_add({{key}}_list_{level}, ypython_create_a_general_variable({the_data}));\n".format(the_data=real_element.translated_code, level=level)
+
+        default_element.type = "list"
+        default_element.general_value = code_text
+        default_element.translated_code = more_translated_code
+        default_element.name = "{{key}}_list_{level}".format(level=level)
+        return default_element
+    elif code_text.startswith("{") and code_text.endswith("}"):
         # it is a dict
         default_element.type = "dict"
         default_element.general_value = code_text
         default_element.translated_code_for_definition = """Type_Ypython_Dict *{key} = NULL;"""
         default_element.translated_code_for_real_part = "{key} = Ypython_Dict();"
-        default_element.translated_code = """
-Type_Ypython_Dict *{key} = NULL;
-{key} = Ypython_Dict();
-"""
+        default_element.translated_code = default_element.translated_code_for_definition + "\n" + default_element.translated_code_for_real_part
+        # The interesting part of python2.7 or python3.2 is that they do the dict parsing sequencely, but if you loop the key, you will get random order, which is strange. They should be sequenced or follow the order natually. Then you found they fixed that bug by creating a new class "OrderedDict" in python3.10.
+        inner_code_text = code_text[1:-1]
+        index = 0
+        items_list = []
+        a_item_string = ""
+        while index < len(inner_code_text):
+            # the hard part here is to avoid handling "," in '', "", [], {}.
+            character = inner_code_text[index]
+            if character == ",":
+                items_list.append(str(a_item_string.strip()))
+                a_item_string = ""
+            a_item_string += character
+            index += 1
+        items_list.append(str(a_item_string.strip()))
+
+        more_translated_code = ""
+        for item in items_list:
+            key, value = item.split(":")
+            key = key.strip()
+            value = value.strip()
+            key_element = process_code(variable_dict, key, level=level+1)
+            value_element = process_code(variable_dict, value, level=level+1)
+            more_translated_code += value_element.translated_code
+            more_translated_code += "{{key}}->function_set({{key}}, {a_dict_key}, {a_variable_name});\n".format(a_dict_key=key_element.translated_code, a_variable_name=value_element.name)
+        default_element.translated_code_for_real_part += "\n" + more_translated_code
+        default_element.translated_code += "\n" + more_translated_code
+
         return default_element
     else:
         # handle code text line by line for normal case
@@ -173,7 +231,7 @@ Type_Ypython_Dict *{key} = NULL;
                         if returned_element.type == "dict":
                             returned_element.translated_code_for_definition = returned_element.translated_code_for_definition.format(key=key)
                             returned_element.translated_code_for_real_part = returned_element.translated_code_for_real_part.format(key=key)
-                            returned_element.translated_code = returned_element.translated_code.format(key=key)
+                            #returned_element.translated_code = returned_element.translated_code.format(key=key)
                             element_list.append(returned_element)
                 if "\n" in value:
                     jump_line_number = len(value.split("\n"))
