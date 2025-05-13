@@ -1,5 +1,9 @@
 # yingshaoxo: A demo python parser, definately have bugs, it is just fake code, rewrite it carefully to prevent bugs
 
+# I think there might have ways to implement try and catch method, because we know if a variable_name or function_name is defined or not before we run a line of code, and we also know if code in a function has syntax error or not. I just need to find a way to mimic the original python try and except error handling behavior. OK, I got it, we just have to create a Python_Element_Instance where its type is "Error" and give the general_value a error_string to descript that error. Then in the process_code function, if we get a error element, we print error and return immediately. And when we hit 'try code_block', we run that code block first, if we get any error element, we drop that code_block, then we run 'except code_block'.
+
+# As for the class, actually we could use a dict to replace class. Just create a dict with some propertys and functions, then whenever you want to create a "new class", you copy that dict, and change those data in that new dict with functions defined inside of that dict. Ofcause you have to pass that dict as 'self' to those functions each time. The python class machinism is just a helper grammer to simplifying that process.
+
 # normally in python you get this dict by using dir()
 global_variable_dict = {
     "__built_in_s__": ["type"]
