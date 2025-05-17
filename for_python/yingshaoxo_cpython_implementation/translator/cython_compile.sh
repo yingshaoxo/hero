@@ -1,11 +1,11 @@
 # generate c code 
-cython --embed -3 y_python.py -o ./dist/y_python.c  
+cython --embed -3 y_python.py -o ./y_python_cython.c  
 
 # compile c to *.run  
 # Whenever you want to compile the c file it generated, you have to be able to compile the original python code first.
 # even if you did, if you do not add -static to that command, your compiled file will only be able to get running in your own computer
 rm ./dist/y_python.run
-gcc -std=c99 -lpthread $(python3-config --includes) $(python3-config --ldflags) ./dist/y_python.c -o ./dist/y_python.run
+gcc -std=c99 -lpthread $(python3-config --includes) $(python3-config --ldflags) ./y_python_cython.c -o ./dist/y_python.run
 
 
 # It is not easy to do the static compile in normal linux distrubution

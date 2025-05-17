@@ -1,3 +1,5 @@
+# I think it is possible for this to work only if the python code has return type defined before the translation
+# But I don't like the typed version of python, so bye, python to c99 project.
 
 def read_second_command_line_second_argument_file(file_path=None):
     if file_path == None:
