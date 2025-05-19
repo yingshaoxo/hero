@@ -476,7 +476,7 @@ Type_Ypython_None *Ypython_None() {
     new_none_value = (Type_Ypython_None *)malloc(sizeof(Type_Ypython_None));
 
     new_none_value->is_none = true;
-    new_none_value -> type = (char *)"none";
+    new_none_value->type = (char *)"none";
 
     new_none_value->value = 0;
 
@@ -747,7 +747,7 @@ Type_Ypython_Bool *Ypython_Bool(bool value) {
     new_bool_value = (Type_Ypython_Bool *)malloc(sizeof(Type_Ypython_Bool));
 
     new_bool_value->is_none = false;
-    new_bool_value -> type = (char *)"bool";
+    new_bool_value->type = (char *)"bool";
 
     new_bool_value->value = value;
 
@@ -973,7 +973,7 @@ Type_Ypython_General *Ypython_General() {
     new_value = (Type_Ypython_General *)malloc(sizeof(Type_Ypython_General));
 
     new_value->is_none = false;
-    new_value -> type = (char *)"general";
+    new_value->type = (char *)"general";
 
     new_value->bool_ = NULL;
     new_value->float_ = NULL;
@@ -1667,7 +1667,7 @@ Type_Ypython_Dict *Ypython_Dict() {
     new_value = (Type_Ypython_Dict *)malloc(sizeof(Type_Ypython_Dict));
 
     new_value->is_none = false;
-    new_value -> type = (char *)"dict";
+    new_value->type = (char *)"dict";
 
     new_value->keys = Ypython_List();
     new_value->values = Ypython_List();
@@ -1747,7 +1747,7 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
     }
 
     new_value->is_none = false;
-    new_value -> type = (char *)"general";
+    new_value->type = (char *)"general";
     new_value->bool_ = NULL;
     new_value->float_ = NULL;
     new_value->int_ = NULL;
