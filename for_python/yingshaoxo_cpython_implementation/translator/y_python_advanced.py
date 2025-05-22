@@ -5,6 +5,8 @@
 # 2. Make sure the element has tree structure, I mean a class element may has a lot of functions elements inside, one element has many other child elements. We parse those elements from code, follow the order of 'top to bottom', 'big pattern to small pattern' or 'big template to small template'.
 # 3. Then, based on the element tree, we can: 1. execute code one by one, just like an operator, where python code is the instructure or remote controller. 2. translate python code into c99 code
 
+# If we want to convert a python code into c99 code, it has to have type information. Especially what type a function receive and returns, I mean, [string, float, int, bool, none, list, dict, any_class_definition]
+
 
 class Python_Element_Instance():
     def __init__(self):
@@ -31,15 +33,15 @@ class Python_Element_Instance():
         return ""
 
 
-def get_indent_number(code):
+def get_indent_number(code: str) -> int:
     new_code = code.lstrip()
     return len(code) - len(new_code)
 
-def get_indent(code):
+def get_indent(code: str) -> str:
     length = get_indent_number(code)
     return code[:length]
 
-def set_indent(code, level=0):
+def set_indent(code: str, level: int=0) -> str:
     lines = code.split("\n")
     result_code = ""
     for line in lines:
@@ -50,7 +52,7 @@ def set_indent(code, level=0):
             result_code += "\n"
     return result_code
 
-def get_text_until_closed_symbol(lines, start_symbol, end_symbol):
+def get_text_until_closed_symbol(lines: list, start_symbol: str, end_symbol: str) -> str:
     result_text = ""
 
     start_symbol_counting = 0
@@ -74,7 +76,7 @@ def get_text_until_closed_symbol(lines, start_symbol, end_symbol):
     return result_text
 
 
-def parse_code_by_char(text_code, just_return_one_element=False):
+def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> Python_Element_Instance:
     # similar to eval() in python, which takes '1 + (1 * 2)', output '3'
     # it should also parse dict, list, string, float, int, bool, None
 
@@ -120,8 +122,12 @@ def parse_code_by_char(text_code, just_return_one_element=False):
     elif text_code.startswith('{') and text_code.endswith('}'):
         # it is dict
         a_element._type = "dict"
-        values = text_code[1:-1].split(", ") # there may have a bug when a list is in the dict
-        values = {one.split(": ")[0].strip(): one.split(":")[1].strip() for one in values}
+        text_code = text_code[1:-1]
+        if text_code.strip() != "":
+            values = text_code.split(", ") # there may have a bug when a list is in the dict
+            values = {one.split(": ")[0].strip(): one.split(":")[1].strip() for one in values}
+        else:
+            values = {} # there may have a bug when a list is in the dict
         a_element._value = str(values)
     else:
         # unknow, treat it as string
@@ -130,7 +136,7 @@ def parse_code_by_char(text_code, just_return_one_element=False):
     return a_element
 
 
-def parse_code(text_code, just_return_one_element=False):
+def parse_code(text_code: str, just_return_one_element: bool=False) -> Python_Element_Instance:
     # return an Python_Element_Instance
     default_element = Python_Element_Instance()
     default_element._type = "global_code"
@@ -175,7 +181,7 @@ def parse_code(text_code, just_return_one_element=False):
             an_element = Python_Element_Instance()
             an_element._type = "class"
             an_element._name = class_name
-            an_element._value = temp_code_block
+            an_element._value = temp_code_block.strip()
 
             children = []
             functions_code_block = "\n".join(temp_code_block.split("\n")[1:])
@@ -196,12 +202,28 @@ def parse_code(text_code, just_return_one_element=False):
             function_code = ""
             end_of_a_function_new_line_counting = 0
 
-            function_code += lines[line_index] + "\n" #try to save the function arguments
+            function_head_line = lines[line_index]
+            function_code += function_head_line + "\n" #try to save the function arguments
             temp_index = line_index + 1
             base_line = lines[temp_index]
             indents_number = get_indent_number(base_line)
             while temp_index < len(lines):
                 temp_line = lines[temp_index]
+
+                # handle multiple line string comment
+                if '= """' in temp_line:
+                    function_code += temp_line + "\n"
+                    temp_index2 = temp_index + 1
+                    while temp_index2 < len(lines):
+                        temp_line2 = lines[temp_index2]
+                        if '"""' in temp_line2:
+                            function_code += temp_line2 + "\n"
+                            temp_index = temp_index2 + 1
+                            break
+                        else:
+                            function_code += temp_line2 + "\n"
+                        temp_index2 += 1
+                    continue
 
                 temp_indents_number = get_indent_number(temp_line)
                 if temp_line.strip() != "" and temp_indents_number < indents_number:
@@ -211,12 +233,19 @@ def parse_code(text_code, just_return_one_element=False):
                 temp_index += 1
 
             line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
-
             an_element = Python_Element_Instance()
             an_element._type = "function"
             an_element._name = function_name
+            function_code = function_code.strip()
             an_element._value = function_code
             an_element._information["_parsed_child_text"] = False
+
+            if " -> " in function_head_line:
+                return_type = function_head_line.split(" -> ")[1].split(":")[0]
+                an_element._information["_return_type"] = return_type.strip()
+            an_element._information["_parameter_string"] = function_head_line.split("(")[1].split(")")[0]
+            an_element._information["_pure_function_code"] = "\n".join(function_code.split("\n")[1:])
+
         elif " = " in line and line.count(" = ") == 1:
             # variable assignment
             key, value = line.split(" = ")
@@ -311,7 +340,7 @@ def parse_code(text_code, just_return_one_element=False):
     return default_element
 
 
-def process_code(variable_dict, an_element=None, code=None):
+def process_code(variable_dict: dict, an_element: Python_Element_Instance=None, code: str=None):
     if an_element == None and code == None:
         return
 
@@ -319,12 +348,73 @@ def process_code(variable_dict, an_element=None, code=None):
         an_element = parse_code(code)
 
 
+def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
+    # you already parsed the class and function into objects
+    # then you have to convert those objects into c99 code, just a big strucure for class and function
+    type_translate_dict = {
+        "None": "Type_Ypython_None",
+        "str": "Type_Ypython_String",
+        "int": "Type_Ypython_Int",
+        "float": "Type_Ypython_Float",
+        "bool": "Type_Ypython_Bool",
+        "list": "Type_Ypython_List",
+        "dict": "Type_Ypython_Dict",
+    }
 
-with open("y_python.py", encoding="utf-8") as f:
+    translated_code = ""
+
+    if a_python_element._type == "global_code":
+        translated_code += """
+#include "../y_python.h"
+#include "../y_python_linux.h"
+"""
+
+        for child in a_python_element._children:
+            translated_code += tranalste_to_c99(child)
+
+        translated_code += """
+int main(int argument_number, char **argument_list) {
+    //{code_in_main_function}
+    return 0;
+}
+"""
+    elif a_python_element._type == "function" and "_return_type" in a_python_element._information:
+        # you have to know the return type and paramater type
+        function_code = """
+{return_type} *{function_name}({parameter_string}) {{
+{function_code}
+}}
+"""
+        _return_type = a_python_element._information["_return_type"]
+        if _return_type in type_translate_dict:
+            return_type = type_translate_dict.get(_return_type)
+        else:
+            return_type = "Type_" + _return_type
+        translated_code += function_code.format(
+            return_type=return_type,
+            function_name=a_python_element._name,
+            parameter_string=a_python_element._information["_parameter_string"],
+            function_code=a_python_element._information["_pure_function_code"]
+        )
+
+    return translated_code
+
+
+def tranalste_to_golang(a_python_element: Python_Element_Instance) -> str:
+    # it is just a example, your server should only use one architecture, which is the computer you can build by yourself.
+    # but the client software code changes very quick as their owner intend to make it hard for third party software developer to do developement
+    pass
+
+
+
+with open("y_python_advanced.py", encoding="utf-8") as f:
     a_py_file_text = f.read()
 
 global_variable_dict = {}
 global_code_object = parse_code(a_py_file_text)
+
 import os
 os.system("clear")
-print(global_code_object)
+
+#print(global_code_object)
+print(tranalste_to_c99(global_code_object))
