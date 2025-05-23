@@ -1,7 +1,7 @@
 # yingshaoxo: An advanced python interpreter
 
 # To rewrite a python:
-# 1. We need to parse python code into components or elements first, each element contains different information. For example: element name can be one of [string, float, int, bool, none, list, dict, ignore, variable_assignment, if_else, try_catch, while_break, function, return, function_call, class, class_instance, global_code].
+# 1. We need to parse python code into components or elements first, each element contains different information. For example: element name can be one of [string, float, int, bool, none, list, dict, ignore, variable_assignment, if_else, try_catch, while_break, function, return, function_call, class, class_instance, code, global_code].
 # 2. Make sure the element has tree structure, I mean a class element may has a lot of functions elements inside, one element has many other child elements. We parse those elements from code, follow the order of 'top to bottom', 'big pattern to small pattern' or 'big template to small template'.
 # 3. Then, based on the element tree, we can: 1. execute code one by one, just like an operator, where python code is the instructure or remote controller. 2. translate python code into c99 code
 
@@ -19,6 +19,7 @@ class Python_Element_Instance():
         self._information = {
             "_parsed_child_text": False,
             "_parsed_line_index": 0,
+            "indent_string": ""
         }
 
     def __str__(self):
@@ -75,6 +76,31 @@ def get_text_until_closed_symbol(lines: list, start_symbol: str, end_symbol: str
 
     return result_text
 
+def pre_process_comments(text_code: str) -> str:
+    new_code = ""
+    lines = text_code.split("\n")
+    for line in lines:
+        original_line = line
+        if "#" in line and not line.strip().startswith("#"):
+            has_comment = False
+            comment = ""
+            for char in reversed(line):
+                comment += char
+                if char == "#":
+                    has_comment = True
+                    break
+
+            if has_comment == True:
+                comment = str("".join(list(reversed(comment))))
+                line = line.split(comment)[0]
+                new_code += line + "\n"
+                new_code += get_indent(original_line) + comment + "\n"
+            else:
+                new_code += line + "\n"
+        else:
+            new_code += line + "\n"
+    return new_code
+
 
 def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> Python_Element_Instance:
     # similar to eval() in python, which takes '1 + (1 * 2)', output '3'
@@ -87,6 +113,8 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
 
     if text_code == "":
         return default_element
+    elif text_code == "None":
+        a_element._type = "None"
     elif text_code.startswith('"') and text_code.endswith('"'):
         # it is a string
         a_element._type = "string"
@@ -117,15 +145,17 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
         # it is list
         a_element._type = "list"
         values = text_code[1:-1].split(", ")
-        values = [one for one in values]
+        values = [one for one in values if one.strip() != ""]
         a_element._value = str(values)
     elif text_code.startswith('{') and text_code.endswith('}'):
         # it is dict
         a_element._type = "dict"
+        old_code = text_code
         text_code = text_code[1:-1]
         if text_code.strip() != "":
-            values = text_code.split(", ") # there may have a bug when a list is in the dict
-            values = {one.split(": ")[0].strip(): one.split(":")[1].strip() for one in values}
+            #values = text_code.split(",") # there may have a bug when a list is in the dict
+            #values = {one.strip().split(":")[0].strip(): one.strip().split(":")[1].strip() for one in values}
+            values = eval(old_code)
         else:
             values = {} # there may have a bug when a list is in the dict
         a_element._value = str(values)
@@ -136,12 +166,19 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
     return a_element
 
 
-def parse_code(text_code: str, just_return_one_element: bool=False) -> Python_Element_Instance:
+def parse_code(text_code: str, just_return_one_element: bool=False, global_code=False) -> Python_Element_Instance:
     # return an Python_Element_Instance
     default_element = Python_Element_Instance()
-    default_element._type = "global_code"
+    if global_code == True:
+        default_element._type = "global_code"
+    else:
+        default_element._type = "code"
     default_element._name = ""
     default_element._value = text_code
+
+    if text_code == None:
+        default_element._type = "None"
+        return default_element
 
     lines = text_code.split("\n")
     line_index = 0
@@ -196,6 +233,7 @@ def parse_code(text_code: str, just_return_one_element: bool=False) -> Python_El
 
             an_element._children = children
             an_element._information["_parsed_child_text"] = True
+            an_element._information["_pure_class_code"] = "\n".join(an_element._value.split("\n")[1:])
         elif line.startswith("def "):
             # it is a function
             function_name = line.split("def ")[1].split("(")[0]
@@ -258,75 +296,77 @@ def parse_code(text_code: str, just_return_one_element: bool=False) -> Python_El
             # if this is a function call, it has to be false, later in process_code(), if parsed_child_text == False, you have to do a parse first to get new children list
             an_element._information["_parsed_child_text"] = True
 
-            if "." in key:
-                # class instance related assignment operation
-                pass
+            #if "." in key:
+            #    # class instance related assignment operation
+            #    pass
+
+            # normal variable related assignment operation
+            if value.endswith(")"):
+                # it is come from a function call
+                an_element._information["_parsed_child_text"] = False
+                #an_element = handle_function_call(variable_dict, value, process)
+            elif value.startswith('"""'):
+                # it is a raw string, """could have no leading space in next line"""
+                long_text = ""
+                temp_index = line_index + 1
+                while temp_index < len(lines):
+                    temp_line = lines[temp_index]
+                    if temp_line.endswith('"""'):
+                        break
+                    long_text += temp_line + "\n"
+                    temp_index += 1
+                line_index = temp_index
+
+                an_element._value = long_text
+
+                an_element_2 = Python_Element_Instance()
+                an_element_2._type = "string"
+                an_element_2._value = long_text
+
+                an_element._children.append(an_element_2)
+            elif value.startswith("'''"):
+                # it is a raw string, '''could have no leading space in next line'''
+                long_text = ""
+                temp_index = line_index + 1
+                while temp_index < len(lines):
+                    temp_line = lines[temp_index]
+                    if temp_line.endswith("'''"):
+                        break
+                    long_text += temp_line + "\n"
+                    temp_index += 1
+                line_index = temp_index
+
+                an_element._value = long_text
+
+                an_element_2 = Python_Element_Instance()
+                an_element_2._type = "string"
+                an_element_2._value = long_text
+
+                an_element._children.append(an_element_2)
             else:
-                # normal variable related assignment operation
-                if value.endswith(")"):
-                    # it is come from a function call
-                    an_element._information["_parsed_child_text"] = False
-                    #an_element = handle_function_call(variable_dict, value, process)
-                elif value.startswith('"""'):
-                    # it is a raw string, """could have no leading space in next line"""
-                    long_text = ""
-                    temp_index = line_index + 1
-                    while temp_index < len(lines):
-                        temp_line = lines[temp_index]
-                        if temp_line.endswith('"""'):
-                            break
-                        long_text += temp_line + "\n"
-                        temp_index += 1
-                    line_index = temp_index
-
-                    an_element._value = long_text
-
-                    an_element_2 = Python_Element_Instance()
-                    an_element_2._type = "string"
-                    an_element_2._value = long_text
-
-                    an_element._children.append(an_element_2)
-                elif value.startswith("'''"):
-                    # it is a raw string, '''could have no leading space in next line'''
-                    long_text = ""
-                    temp_index = line_index + 1
-                    while temp_index < len(lines):
-                        temp_line = lines[temp_index]
-                        if temp_line.endswith("'''"):
-                            break
-                        long_text += temp_line + "\n"
-                        temp_index += 1
-                    line_index = temp_index
-
-                    an_element._value = long_text
-
-                    an_element_2 = Python_Element_Instance()
-                    an_element_2._type = "string"
-                    an_element_2._value = long_text
-
-                    an_element._children.append(an_element_2)
+                # normal value
+                start_symbol = value[0]
+                if start_symbol in ["{", "["]:
+                    if start_symbol == "{":
+                        end_symbol = "}"
+                    elif start_symbol == "[":
+                        end_symbol = "]"
+                    value = get_text_until_closed_symbol(lines[line_index:], start_symbol, end_symbol)
+                    if "\n" in value:
+                        jump_line_number = len(value.split("\n"))
+                        line_index += jump_line_number
+                    an_element._value = value
+                    an_element._children.append(parse_code_by_char(value))
                 else:
-                    # normal value
-                    start_symbol = value[0]
-                    if start_symbol in ["{", "["]:
-                        if start_symbol == "{":
-                            end_symbol = "}"
-                        elif start_symbol == "[":
-                            end_symbol = "]"
-                        value = get_text_until_closed_symbol(lines[line_index:], start_symbol, end_symbol)
-                        if "\n" in value:
-                            jump_line_number = len(value.split("\n"))
-                            line_index += jump_line_number
-                        an_element._value = value
-                        an_element._children.append(parse_code_by_char(value))
-                    else:
-                        # should be a value that can be get from eval() function
-                        an_element._children.append(parse_code_by_char(value))
+                    # should be a value that can be get from eval() function
+                    an_element._children.append(parse_code_by_char(value))
         else:
             an_element = Python_Element_Instance()
             an_element._type = "ignore"
             an_element._name = ""
             an_element._value = original_line
+
+        an_element._information["indent_string"] = get_indent(original_line)
 
         if just_return_one_element == True:
             an_element._information["_parsed_line_index"] = line_index + 1
@@ -348,10 +388,8 @@ def process_code(variable_dict: dict, an_element: Python_Element_Instance=None, 
         an_element = parse_code(code)
 
 
-def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
-    # you already parsed the class and function into objects
-    # then you have to convert those objects into c99 code, just a big strucure for class and function
-    type_translate_dict = {
+def _to_c99_type_from_python_type(type_string: str) -> str:
+    c99_type_translate_dict = {
         "None": "Type_Ypython_None",
         "str": "Type_Ypython_String",
         "int": "Type_Ypython_Int",
@@ -360,6 +398,15 @@ def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
         "list": "Type_Ypython_List",
         "dict": "Type_Ypython_Dict",
     }
+    result = c99_type_translate_dict.get(type_string)
+    if result == None:
+        return "Type_" + type_string
+    else:
+        return result
+
+def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
+    # you already parsed the class and function into objects
+    # then you have to convert those objects into c99 code, just a big strucure for class and function
 
     translated_code = ""
 
@@ -386,16 +433,52 @@ int main(int argument_number, char **argument_list) {
 }}
 """
         _return_type = a_python_element._information["_return_type"]
-        if _return_type in type_translate_dict:
-            return_type = type_translate_dict.get(_return_type)
-        else:
-            return_type = "Type_" + _return_type
+        return_type = _to_c99_type_from_python_type(_return_type)
         translated_code += function_code.format(
             return_type=return_type,
             function_name=a_python_element._name,
             parameter_string=a_python_element._information["_parameter_string"],
             function_code=a_python_element._information["_pure_function_code"]
         )
+    elif a_python_element._type == "class":
+        class_code = """
+typedef struct Type_{class_name} Type_{class_name};
+struct Type_{class_name} {{
+{property_definition}
+}};
+
+Type_{class_name} *{class_name}() {{
+    Type_{class_name} *new_element_instance;
+    new_element_instance = (Type_{class_name} *)malloc(sizeof(Type_{class_name}));
+
+{property_initiation}
+
+    return new_element_instance;
+}}
+"""
+        property_definition_string = ""
+        property_initiation_string = ""
+        if len(a_python_element._children) >= 1:
+            the_init_function_element = a_python_element._children[0]
+            if the_init_function_element._name == "__init__":
+                # this class object has some propertys to initialize
+                code_object = parse_code(the_init_function_element._information["_pure_function_code"])
+                for child in code_object._children:
+                    if child._type == "variable_assignment":
+                        key, value = child._name, child._value.replace("\n", "")
+                        if "self." in key:
+                            # put it into class structure
+                            name = key.split("self.")[1]
+                            the_type = _to_c99_type_from_python_type(child._children[0]._type)
+                            property_definition_string += child._information["indent_string"] + the_type + " *" + name + ";" + "\n"
+                            # put it into class initialization function
+                            property_initiation_string += child._information["indent_string"] + "new_element_instance->" + name + " = " + value + ";" + "\n"
+        translated_code += class_code.format(
+            class_name = a_python_element._name,
+            property_definition = property_definition_string,
+            property_initiation = property_initiation_string,
+        )
+        #print(translated_code)
 
     return translated_code
 
@@ -409,12 +492,14 @@ def tranalste_to_golang(a_python_element: Python_Element_Instance) -> str:
 
 with open("y_python_advanced.py", encoding="utf-8") as f:
     a_py_file_text = f.read()
+a_py_file_text = pre_process_comments(a_py_file_text)
 
 global_variable_dict = {}
-global_code_object = parse_code(a_py_file_text)
+global_code_object = parse_code(a_py_file_text, global_code=True)
 
 import os
 os.system("clear")
 
 #print(global_code_object)
-print(tranalste_to_c99(global_code_object))
+final_code = tranalste_to_c99(global_code_object)
+print(final_code)
