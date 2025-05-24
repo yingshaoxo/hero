@@ -1,16 +1,16 @@
 # yingshaoxo: An advanced python interpreter
 
 # To rewrite a python:
-# 1. We need to parse python code into components or elements first, each element contains different information. For example: element name can be one of [string, float, int, bool, none, list, dict, ignore, variable_assignment, if_else, try_catch, while_break, function, return, function_call, class, class_instance, code, global_code].
+# 1. We need to parse python code into components or elements first, each element contains different information. For example: element name can be one of [str, float, int, bool, none, list, dict, ignore, variable_assignment, if_else, try_catch, while_break, function, return, function_call, class, class_instance, code, global_code].
 # 2. Make sure the element has tree structure, I mean a class element may has a lot of functions elements inside, one element has many other child elements. We parse those elements from code, follow the order of 'top to bottom', 'big pattern to small pattern' or 'big template to small template'.
 # 3. Then, based on the element tree, we can: 1. execute code one by one, just like an operator, where python code is the instructure or remote controller. 2. translate python code into c99 code
 
-# If we want to convert a python code into c99 code, it has to have type information. Especially what type a function receive and returns, I mean, [string, float, int, bool, none, list, dict, any_class_definition]
+# If we want to convert a python code into c99 code, it has to have type information. Especially what type a function receive and returns, I mean, [str, float, int, bool, none, list, dict, any_class_definition]
 
 
 class Python_Element_Instance():
     def __init__(self):
-        # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
+        # none, str, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
         self._type = "None"
         self._name = None # variable name, function name, class name
         self._value = None # in c, it is Ypython_General(), and most likely it is just pure text version of the original code
@@ -117,11 +117,11 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
         a_element._type = "None"
     elif text_code.startswith('"') and text_code.endswith('"'):
         # it is a string
-        a_element._type = "string"
+        a_element._type = "str"
         a_element._value = text_code[1:-1]
     elif text_code.startswith("'") and text_code.endswith("'"):
         # it is a string
-        a_element._type = "string"
+        a_element._type = "str"
         a_element._value = text_code[1:-1]
     elif text_code.replace(".","").isdigit():
         # it is a number
@@ -161,8 +161,12 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
         a_element._value = str(values)
     else:
         # unknow, treat it as string
-        a_element._type = "string"
+        a_element._type = "str"
         a_element._value = text_code
+        #an_element = Python_Element_Instance()
+        #an_element._type = "ignore"
+        #an_element._name = ""
+        #an_element._value = original_line
     return a_element
 
 
@@ -320,7 +324,7 @@ def parse_code(text_code: str, just_return_one_element: bool=False, global_code=
                 an_element._value = long_text
 
                 an_element_2 = Python_Element_Instance()
-                an_element_2._type = "string"
+                an_element_2._type = "str"
                 an_element_2._value = long_text
 
                 an_element._children.append(an_element_2)
@@ -339,7 +343,7 @@ def parse_code(text_code: str, just_return_one_element: bool=False, global_code=
                 an_element._value = long_text
 
                 an_element_2 = Python_Element_Instance()
-                an_element_2._type = "string"
+                an_element_2._type = "str"
                 an_element_2._value = long_text
 
                 an_element._children.append(an_element_2)
@@ -361,10 +365,7 @@ def parse_code(text_code: str, just_return_one_element: bool=False, global_code=
                     # should be a value that can be get from eval() function
                     an_element._children.append(parse_code_by_char(value))
         else:
-            an_element = Python_Element_Instance()
-            an_element._type = "ignore"
-            an_element._name = ""
-            an_element._value = original_line
+            an_element = parse_code_by_char(original_line)
 
         an_element._information["indent_string"] = get_indent(original_line)
 
@@ -389,20 +390,48 @@ def process_code(variable_dict: dict, an_element: Python_Element_Instance=None, 
 
 
 def _to_c99_type_from_python_type(type_string: str) -> str:
-    c99_type_translate_dict = {
-        "None": "Type_Ypython_None",
-        "str": "Type_Ypython_String",
-        "int": "Type_Ypython_Int",
-        "float": "Type_Ypython_Float",
-        "bool": "Type_Ypython_Bool",
-        "list": "Type_Ypython_List",
-        "dict": "Type_Ypython_Dict",
-    }
-    result = c99_type_translate_dict.get(type_string)
-    if result == None:
+    #c99_type_translate_dict = {
+    #    "None": "Type_Ypython_None",
+    #    "str": "Type_Ypython_String",
+    #    "int": "Type_Ypython_Int",
+    #    "float": "Type_Ypython_Float",
+    #    "bool": "Type_Ypython_Bool",
+    #    "list": "Type_Ypython_List",
+    #    "dict": "Type_Ypython_Dict",
+    #}
+    #result = c99_type_translate_dict.get(type_string)
+    #if result == None:
+    #    return "Type_" + type_string
+    #else:
+    #    return result
+    if type_string not in ["None", "str", "int", "float", "list", "dict"]:
         return "Type_" + type_string
     else:
-        return result
+        return "Type_Ypython_General"
+
+def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -> str:
+    variable_name = information_dict["variable_name"]
+    an_element = parse_code(value_string)
+
+    result_code = ""
+    if len(an_element._children) == 0:
+        the_first_value_element = an_element
+    else:
+        the_first_value_element = an_element._children[0]
+
+    if 1 == 2:
+        pass
+    elif the_first_value_element._type == "None":
+        single_variable_code = "Ypython_None()"
+    elif the_first_value_element._type == "str":
+        single_variable_code = "Ypython_String(" + '"' + the_first_value_element._value + '"' + ")"
+    elif the_first_value_element._type == "list":
+        single_variable_code = "Ypython_List(" + '"' + the_first_value_element._value + '"' + ")"
+    elif the_first_value_element._type == "dict":
+        single_variable_code = "Ypython_Dict(" + '"' + the_first_value_element._value + '"' + ")"
+    result_code += an_element._information["indent_string"] + "new_element_instance->" + variable_name + " = " + "ypython_create_a_general_variable(" + single_variable_code + ")" + ";" + "\n"
+
+    return result_code
 
 def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
     # you already parsed the class and function into objects
@@ -445,7 +474,11 @@ int main(int argument_number, char **argument_list) {
 typedef struct Type_{class_name} Type_{class_name};
 struct Type_{class_name} {{
 {property_definition}
+
+{functions_definition}
 }};
+
+{functions_code_string}
 
 Type_{class_name} *{class_name}() {{
     Type_{class_name} *new_element_instance;
@@ -453,13 +486,17 @@ Type_{class_name} *{class_name}() {{
 
 {property_initiation}
 
+{functions_initiation}
+
     return new_element_instance;
 }}
 """
         property_definition_string = ""
         property_initiation_string = ""
+        indents_string = ""
         if len(a_python_element._children) >= 1:
             the_init_function_element = a_python_element._children[0]
+            indents_string = the_init_function_element._information["indent_string"]
             if the_init_function_element._name == "__init__":
                 # this class object has some propertys to initialize
                 code_object = parse_code(the_init_function_element._information["_pure_function_code"])
@@ -470,14 +507,60 @@ Type_{class_name} *{class_name}() {{
                             # put it into class structure
                             name = key.split("self.")[1]
                             the_type = _to_c99_type_from_python_type(child._children[0]._type)
-                            property_definition_string += child._information["indent_string"] + the_type + " *" + name + ";" + "\n"
+                            #indents_string = child._information["indent_string"]
+                            property_definition_string += indents_string + the_type + " *" + name + ";" + "\n"
                             # put it into class initialization function
-                            property_initiation_string += child._information["indent_string"] + "new_element_instance->" + name + " = " + value + ";" + "\n"
+                            if len(child._children) == 0:
+                                pass
+                            else:
+                                property_initiation_string += indents_string + _to_c99_value_from_python_value(value.strip(), {"variable_name": name})
+
+        functions_code_string = ""
+        for child in a_python_element._children:
+            if child._name != "__init__":
+                function_name, function_content = child._name, child._value
+                temp_string = """
+{return_type} *Type_{class_name}_{function_name}(Type_{class_name} *self) {{
+}}
+""".strip()
+                functions_code_string += temp_string.format(
+                    return_type="void",
+                    class_name=a_python_element._name,
+                    function_name=child._name
+                )
+
+        functions_definition = ""
+        functions_initiation = ""
+        for child in a_python_element._children:
+            if child._name != "__init__":
+                function_name, function_content = child._name, child._value
+
+                definition_temp_string = """
+{return_type} *(*{function_name})(Type_{class_name} *self);
+""".strip()
+                functions_definition += indents_string + definition_temp_string.format(
+                    return_type="void",
+                    class_name=a_python_element._name,
+                    function_name=child._name
+                )
+
+                initiation_temp_string = """
+new_element_instance->{function_name} = &Type_{class_name}_{function_name};
+""".strip()
+                functions_initiation += indents_string + initiation_temp_string.format(
+                    class_name=a_python_element._name,
+                    function_name=child._name
+                )
+
         translated_code += class_code.format(
             class_name = a_python_element._name,
             property_definition = property_definition_string,
             property_initiation = property_initiation_string,
+            functions_code_string = functions_code_string,
+            functions_definition = functions_definition,
+            functions_initiation = functions_initiation
         )
+
         #print(translated_code)
 
     return translated_code
