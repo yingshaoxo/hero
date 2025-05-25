@@ -105,14 +105,13 @@ def pre_process_comments(text_code: str) -> str:
 def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> Python_Element_Instance:
     # similar to eval() in python, which takes '1 + (1 * 2)', output '3'
     # it should also parse dict, list, string, float, int, bool, None
-
     a_element = Python_Element_Instance()
     a_element._type = "ignore"
 
     text_code = text_code.strip()
 
     if text_code == "":
-        return default_element
+        return a_element
     elif text_code == "None":
         a_element._type = "None"
     elif text_code.startswith('"') and text_code.endswith('"'):
@@ -144,21 +143,15 @@ def parse_code_by_char(text_code: str, just_return_one_element: bool=False) -> P
     elif text_code.startswith('[') and text_code.endswith(']'):
         # it is list
         a_element._type = "list"
-        values = text_code[1:-1].split(", ")
-        values = [one for one in values if one.strip() != ""]
-        a_element._value = str(values)
+        new_text_code = text_code[1:-1]
+        if new_text_code.strip() != "":
+            for element_string in new_text_code.split(","):
+                a_element._children.append(parse_code_by_char(element_string))
+        a_element._value = text_code
     elif text_code.startswith('{') and text_code.endswith('}'):
         # it is dict
         a_element._type = "dict"
-        old_code = text_code
-        text_code = text_code[1:-1]
-        if text_code.strip() != "":
-            #values = text_code.split(",") # there may have a bug when a list is in the dict
-            #values = {one.strip().split(":")[0].strip(): one.strip().split(":")[1].strip() for one in values}
-            values = eval(old_code)
-        else:
-            values = {} # there may have a bug when a list is in the dict
-        a_element._value = str(values)
+        a_element._value = text_code
     else:
         # unknow, treat it as string
         a_element._type = "str"
@@ -364,6 +357,7 @@ def parse_code(text_code: str, just_return_one_element: bool=False, global_code=
                 else:
                     # should be a value that can be get from eval() function
                     an_element._children.append(parse_code_by_char(value))
+
         else:
             an_element = parse_code_by_char(original_line)
 
@@ -410,28 +404,42 @@ def _to_c99_type_from_python_type(type_string: str) -> str:
         return "Type_Ypython_General"
 
 def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -> str:
-    variable_name = information_dict["variable_name"]
     an_element = parse_code(value_string)
 
-    result_code = ""
-    if len(an_element._children) == 0:
-        the_first_value_element = an_element
+    if len(an_element._children) >= 1:
+        an_element = an_element._children[0]
+
+    if "variable_name" not in information_dict:
+        if an_element._type == "None":
+            return "Ypython_None()"
+        elif an_element._type == "str":
+            return "Ypython_String(" + '"' + an_element._value + '"' + ")"
+        elif an_element._type == "int":
+            return "Ypython_Int(" + '"' + an_element._value + '"' + ")"
     else:
-        the_first_value_element = an_element._children[0]
+        variable_name = information_dict["variable_name"]
 
-    if 1 == 2:
-        pass
-    elif the_first_value_element._type == "None":
-        single_variable_code = "Ypython_None()"
-    elif the_first_value_element._type == "str":
-        single_variable_code = "Ypython_String(" + '"' + the_first_value_element._value + '"' + ")"
-    elif the_first_value_element._type == "list":
-        single_variable_code = "Ypython_List(" + '"' + the_first_value_element._value + '"' + ")"
-    elif the_first_value_element._type == "dict":
-        single_variable_code = "Ypython_Dict(" + '"' + the_first_value_element._value + '"' + ")"
-    result_code += an_element._information["indent_string"] + "new_element_instance->" + variable_name + " = " + "ypython_create_a_general_variable(" + single_variable_code + ")" + ";" + "\n"
+        translated_code = ""
+        if 1 == 2:
+            pass
+        elif an_element._type == "list":
+            temp_list_variable_name = "temp_{variable_name}_{level}_{count}".format(variable_name=variable_name, level=information_dict["level"], count=information_dict["number_count"])
+            translated_code += "Type_Ypython_List *{temp_list_variable_name} = Ypython_List();\n".format(temp_list_variable_name=temp_list_variable_name)
+            information_dict["level"] = information_dict["level"] + 1
+            for child in an_element._children:
+                information_dict["number_count"] = information_dict["number_count"] + 1
+                translated_code += "{temp_list_variable_name}->function_append({temp_list_variable_name}, {new_value});\n".format(
+                    temp_list_variable_name=temp_list_variable_name,
+                    new_value=_to_c99_value_from_python_value(child._value, {})
+                )
+            translated_code += information_dict["indents_string"] + "Type_Ypython_General *{variable_name} = ypython_create_a_general_variable({temp_list_variable_name});".format(variable_name=variable_name, temp_list_variable_name=temp_list_variable_name)
+        elif an_element._type == "dict":
+            translated_code = "Ypython_Dict(" + '"' + an_element._value + '"' + ")"
+        else:
+            basic_value = _to_c99_value_from_python_value(an_element._value, {})
+            translated_code = "Type_Ypython_General *{variable_name} = ypython_create_a_general_variable({basic_value});".format(variable_name=variable_name, basic_value=basic_value)
 
-    return result_code
+        return translated_code
 
 def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
     # you already parsed the class and function into objects
@@ -513,7 +521,9 @@ Type_{class_name} *{class_name}() {{
                             if len(child._children) == 0:
                                 pass
                             else:
-                                property_initiation_string += indents_string + _to_c99_value_from_python_value(value.strip(), {"variable_name": name})
+                                property_initiation_string += indents_string + _to_c99_value_from_python_value(value.strip(), {"variable_name": name, "level": 0, "number_count": 0, "indents_string": indents_string}) + "\n"
+
+                                property_initiation_string += indents_string + "new_element_instance->" + name + " = " + name + ";\n\n"
 
         functions_code_string = ""
         for child in a_python_element._children:
