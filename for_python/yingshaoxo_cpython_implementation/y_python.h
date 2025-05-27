@@ -1339,9 +1339,6 @@ struct Type_Ypython_List {
     long long length;            // Number of elements
     long long memory_slots;      // Allocated slots
 
-    bool iteration_not_done;
-    long long current_iterate_index;
-
     void (*function_append)(Type_Ypython_List *self, Type_Ypython_General *an_element);
     Type_Ypython_Int *(*function_index)(Type_Ypython_List *self, Type_Ypython_General *an_element);
     Type_Ypython_General* (*function_get)(Type_Ypython_List *self, long long index);
@@ -1349,8 +1346,6 @@ struct Type_Ypython_List {
     void (*function_delete)(Type_Ypython_List *self, long long index);
     void (*function_insert)(Type_Ypython_List *self, long long index, Type_Ypython_General *an_element);
     Type_Ypython_List* (*function_sublist)(Type_Ypython_List *self, long long start_index, long long end_index);
-    void (*function_start_iteration)(Type_Ypython_List *self);
-    Type_Ypython_General* (*function_get_next_one)(Type_Ypython_List *self);
 };
 
 void Type_Ypython_List_append(Type_Ypython_List *self, Type_Ypython_General *an_element) {
@@ -1496,35 +1491,6 @@ Type_Ypython_List* Type_Ypython_List_sublist(Type_Ypython_List *self, long long 
     return new_list;
 }
 
-void Type_Ypython_List_start_iteration(Type_Ypython_List *self) {
-    if (self->is_none) {
-        self->iteration_not_done = false;
-        return;
-    }
-
-    self->current_iterate_index = 0;
-    self->iteration_not_done = self->length > 0;
-}
-
-Type_Ypython_General* Type_Ypython_List_get_next_one(Type_Ypython_List *self) {
-    Type_Ypython_General *default_element = Ypython_General();
-    default_element->is_none = true;
-
-    if (self->is_none || !self->iteration_not_done || self->current_iterate_index >= self->length) {
-        self->iteration_not_done = false;
-        return default_element;
-    }
-
-    Type_Ypython_General *element = self->items[self->current_iterate_index];
-    self->current_iterate_index++;
-    if (self->current_iterate_index >= self->length) {
-        self->iteration_not_done = false;
-    }
-
-    free(default_element);
-    return element;
-}
-
 Type_Ypython_List *Ypython_List() {
     Type_Ypython_List *new_list_value = (Type_Ypython_List *)_ypython_memory_allocation_for_data(sizeof(Type_Ypython_List));
     if (!new_list_value) {
@@ -1547,9 +1513,6 @@ Type_Ypython_List *Ypython_List() {
         new_list_value->items[i] = NULL;
     }
 
-    new_list_value->iteration_not_done = false;
-    new_list_value->current_iterate_index = 0;
-
     new_list_value->function_append = &Type_Ypython_List_append;
     new_list_value->function_index = &Type_Ypython_List_index;
     new_list_value->function_set = &Type_Ypython_List_set;
@@ -1557,8 +1520,6 @@ Type_Ypython_List *Ypython_List() {
     new_list_value->function_delete = &Type_Ypython_List_delete;
     new_list_value->function_insert = &Type_Ypython_List_insert;
     new_list_value->function_sublist = &Type_Ypython_List_sublist;
-    new_list_value->function_start_iteration = &Type_Ypython_List_start_iteration;
-    new_list_value->function_get_next_one = &Type_Ypython_List_get_next_one;
 
     return new_list_value;
 }
@@ -1710,12 +1671,13 @@ Type_Ypython_General *_Ypython_copy_general_variable(Type_Ypython_General *value
         new_value->list_->is_none = value->list_->is_none;
         new_value->is_none = false;
         // Copy each element from the source list
-        value->list_->function_start_iteration(value->list_);
-        while (value->list_->iteration_not_done) {
-            Type_Ypython_General *element = value->list_->function_get_next_one(value->list_);
+        long long a_index = 0; 
+        while (a_index < value->list_->length) {
+            Type_Ypython_General *element = value->list_->function_get(value->list_, a_index);
             if (!element->is_none) {
                 new_value->list_->function_append(new_value->list_, element);
             }
+            a_index += 1;
         }
     } else if (value->dict_ != NULL) {
         // For dicts, we need to create a deep copy
@@ -1723,15 +1685,16 @@ Type_Ypython_General *_Ypython_copy_general_variable(Type_Ypython_General *value
         new_value->dict_->is_none = value->dict_->is_none;
         new_value->is_none = false;
         // Copy each key-value pair from the source dict
-        value->dict_->keys->function_start_iteration(value->dict_->keys);
-        while (value->dict_->keys->iteration_not_done) {
-            Type_Ypython_General *key = value->dict_->keys->function_get_next_one(value->dict_->keys);
+        long long a_index = 0;
+        while (a_index < value->dict_->keys->length) {
+            Type_Ypython_General *key = value->dict_->keys->function_get(value->dict_->keys, a_index);
             if (!key->is_none) {
                 Type_Ypython_General *dict_value = value->dict_->function_get(value->dict_, key->string_);
                 if (!dict_value->is_none) {
                     new_value->dict_->function_set(new_value->dict_, key->string_, dict_value);
                 }
             }
+            a_index += 1;
         }
     } else if (value->anything_ != NULL) {
         new_value->anything_ = value->anything_;
@@ -1757,7 +1720,9 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
     new_value->anything_ = NULL;
     new_value->function_is_equal = &Type_Ypython_General_is_equal;
 
-    if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
+    if (strcmp(((Type_Ypython_None *)value)->type, "none") == 0) {
+        new_value->is_none = true;
+    } else if (strcmp(((Type_Ypython_String *)value)->type, "string") == 0) {
         Type_Ypython_String *str = (Type_Ypython_String *)value;
         new_value->string_ = Ypython_String(str->value);
     } else if (strcmp(((Type_Ypython_Bool *)value)->type, "bool") == 0) {
@@ -1795,6 +1760,35 @@ Type_Ypython_General *ypython_create_a_general_variable(void *value) {
     }
 
     return new_value;
+}
+
+// dict inheritance
+// it should remain access to old dict while add new_dict data to a new dict variable. it is mainly used in function arguments passing
+Type_Ypython_Dict *_Ypython_dict_inheritance(Type_Ypython_Dict *old_dict, Type_Ypython_Dict *new_dict) {
+    Type_Ypython_Dict *result_dict = Ypython_Dict();
+
+    if ((old_dict == NULL) || (new_dict == NULL)) {
+        return result_dict;
+    }
+
+    long long loop_index = 0;
+    while (loop_index < old_dict->keys->length) {
+        Type_Ypython_String *new_key = Ypython_String(old_dict->keys->function_get(old_dict->keys, loop_index)->string_->value);
+        Type_Ypython_General *new_value = old_dict->values->function_get(old_dict->values, loop_index);
+        // here we are basically using the address of those values, so when you change a global variable inside a function, it will really do the change without you to specifying the 'global xx'
+        result_dict->function_set(result_dict, new_key, new_value);
+        loop_index += 1;
+    }
+
+    loop_index = 0;
+    while (loop_index < new_dict->keys->length) {
+        Type_Ypython_String *new_key = Ypython_String(new_dict->keys->function_get(new_dict->keys, loop_index)->string_->value);
+        Type_Ypython_General *new_value = new_dict->values->function_get(new_dict->values, loop_index);
+        result_dict->function_set(result_dict, new_key, new_value);
+        loop_index += 1;
+    }
+    
+    return result_dict;
 }
 
 // string functions

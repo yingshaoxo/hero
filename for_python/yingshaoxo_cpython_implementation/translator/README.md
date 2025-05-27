@@ -142,7 +142,7 @@ It is similar to what cython_to_c did, but the base c library is y_python.h
 
 Where "./y_python.run test.py -o test.c" can output a c99 version of the text.py file.
 
-Where "./y_python.run test.py" can parse and run the text.py file in real time.
+Where "./y_python.run test.py" can parse and run the test.py file in real time.
 
 ### 4. You are actually getting rid of the original python dependencies, because the original python is at least 100 MB bigger, but your new program "y_python.run" only has 512KB and can convert many simple python script into c99 code. Including itself, I mean, the original "y_python.py".
 

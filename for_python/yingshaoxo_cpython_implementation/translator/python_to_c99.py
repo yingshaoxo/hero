@@ -433,7 +433,9 @@ def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -
             return "Ypython_Int(" + an_element._value + ")"
         elif an_element._type == "float":
             return "Ypython_Float(" + an_element._value + ")"
-    else:
+        elif an_element._type == "dict":
+            return "Ypython_Dict("+ "" + ")"
+    elif ("variable_name" in information_dict) and ("use_general_value" in information_dict):
         variable_name = information_dict["variable_name"]
 
         translated_code = ""
@@ -451,21 +453,30 @@ def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -
                 )
             translated_code += information_dict["indents_string"] + "Type_Ypython_General *{variable_name} = ypython_create_a_general_variable({temp_list_variable_name});".format(variable_name=variable_name, temp_list_variable_name=temp_list_variable_name)
         elif an_element._type == "dict":
-            translated_code = "Ypython_Dict(" + '"' + an_element._value + '"' + ")"
+            part_1 = "Ypython_Dict(" + ")"
+            translated_code = "Type_Ypython_General *{variable_name} = ypython_create_a_general_variable({basic_value});".format(variable_name=variable_name, basic_value=part_1)
         else:
             basic_value = _to_c99_value_from_python_value(an_element._value, {})
             translated_code = "Type_Ypython_General *{variable_name} = ypython_create_a_general_variable({basic_value});".format(variable_name=variable_name, basic_value=basic_value)
-
         return translated_code
+    elif ("variable_name" in information_dict) and ("use_general_value" not in information_dict):
+        variable_name = information_dict["variable_name"]
+        if 1 == 2:
+            pass
+        elif an_element._type == "dict":
+            part_1 = "Ypython_Dict(" + ")"
+            translated_code = "Type_Ypython_Dict *{variable_name} = {basic_value};".format(variable_name=variable_name, basic_value=part_1)
+        return translated_code
+    else:
+        translated_code = ""
+        return translated_code
+
 
 def tranalste_to_c99(a_python_element: Python_Element_Instance) -> str:
     # you already parsed the class and function into objects
     # then you have to convert those objects into c99 code, just a big strucure for class and function
 
     translated_code = ""
-
-    if type(a_python_element) != Python_Element_Instance:
-        return str(a_python_element)
 
     if a_python_element._type == "global_code":
         translated_code += """
@@ -650,8 +661,8 @@ def real_time_c99_translator_shell():
 
         global_variable_dict = {}
         global_code_object = parse_code(input_python_code, global_code=False)
-        #print(global_code_object)
-        final_code = tranalste_to_c99(global_code_object)
+        print(global_code_object)
+        final_code = tranalste_to_c99(global_code_object).strip()
         #print(terminal.run_command("xclip -selection clipboard -o"))
         terminal.run('echo -e "{text}" | xclip -selection clipboard'.format(text=final_code.replace('\n', '\\n')), use_os_system=True)
 

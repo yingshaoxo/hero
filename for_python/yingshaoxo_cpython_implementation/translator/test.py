@@ -1,11 +1,13 @@
-name = "hi"
+name = "Hi"
 name = "yingshaoxo"
 print(name)
+#assert name == "yingshaoxo"
 
 def a_function():
     new_variable = "nice"
-    print(name)
     print(new_variable)
+    print(name)
+    print("\n\n")
 
 a_function()
 

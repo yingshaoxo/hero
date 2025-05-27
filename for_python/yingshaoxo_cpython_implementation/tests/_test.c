@@ -206,26 +206,28 @@ int main()
         ypython_print(Ypython_String("The function_has_key not work."));
     }
 
-    a_dict->keys->function_start_iteration(a_dict->keys);
     ypython_print(Ypython_String("dict loop start----\n"));
-    while (a_dict->keys->iteration_not_done) {
-        Type_Ypython_General *temp = a_dict->keys->function_get_next_one(a_dict->keys);
+    long long a_index = 0;
+    while (a_index < a_dict->keys->length) {
+        Type_Ypython_General *temp = a_dict->keys->function_get(a_dict->keys, a_index);
         if (!temp->is_none) {
             ypython_print(temp->string_);
             ypython_print(a_dict->function_get(a_dict, temp->string_)->string_);
         }
+        a_index += 1;
     }
     ypython_print(Ypython_String("dict loop end----\n"));
 
     ypython_print(Ypython_String("for sublist: "));
 
     a_list = a_dict->keys->function_sublist(a_dict->keys, 0, 1);
-    a_list->function_start_iteration(a_list);
-    while (a_list->iteration_not_done) {
-        Type_Ypython_General *temp = a_list->function_get_next_one(a_list);
+    a_index = 0;
+    while (a_index < a_list->length) {
+        Type_Ypython_General *temp = a_list->function_get(a_list, a_index);
         if (!temp->is_none) {
             ypython_print(temp->string_);
         }
+        a_index += 1;
     }
 
 
@@ -283,12 +285,13 @@ int main()
     Type_Ypython_String *a_string_17 = Ypython_String("yingshaoxo is god");
 
     Type_Ypython_List *a_list2 = ypython_string_type_function_split(a_string_17, Ypython_String(" "));
-    a_list2->function_start_iteration(a_list2);
-    while (a_list2->iteration_not_done) {
-        Type_Ypython_General *temp = a_list2->function_get_next_one(a_list2);
+    a_index = 0;
+    while (a_index < a_list2->length) {
+        Type_Ypython_General *temp = a_list2->function_get(a_list2, a_index);
         if (!temp->is_none) {
             ypython_print(temp->string_);
         }
+        a_index += 1;
     }
 
     ypython_raw_print(ypython_string_type_function_split(Ypython_String("yingshaoxo"), NULL));

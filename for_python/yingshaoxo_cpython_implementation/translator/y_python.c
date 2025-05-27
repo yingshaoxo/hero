@@ -7,18 +7,18 @@ Type_Ypython_Dict *global_variable_dict = NULL;
 typedef struct Type_Ypython_Element_Instance Type_Ypython_Element_Instance;
 struct Type_Ypython_Element_Instance {
     // none, string, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
-    Type_Ypython_String *type_;
-    Type_Ypython_String *name; // variable name, function name, class name
-    Type_Ypython_General *general_value; // in c, it is Ypython_General()
+    Type_Ypython_String *_type;
+    Type_Ypython_String *_name; // variable name, function name, class name
+    Type_Ypython_General *_value; // in c, it is Ypython_General()
 };
 
 Type_Ypython_Element_Instance *Ypython_Element_Instance() {
     Type_Ypython_Element_Instance *new_element_instance;
     new_element_instance = (Type_Ypython_Element_Instance *)malloc(sizeof(Type_Ypython_Element_Instance));
 
-    new_element_instance->type_ = Ypython_String("");
-    new_element_instance->name = Ypython_String("");
-    new_element_instance->general_value = NULL;
+    new_element_instance->_type = Ypython_String("");
+    new_element_instance->_name = Ypython_String("");
+    new_element_instance->_value = NULL;
     
     return new_element_instance;
 }
@@ -32,7 +32,7 @@ bool is_digital(Type_Ypython_String *a_string) {
     }
 }
 
-void process(Type_Ypython_String *text_code) {
+void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
     Type_Ypython_List *lines_list = ypython_string_type_function_split(text_code, Ypython_String("\n"));
     int line_index = 0;
     while (line_index < lines_list->length) {
@@ -54,14 +54,14 @@ void process(Type_Ypython_String *text_code) {
                 
                 // Set the value in the dictionary
                 Type_Ypython_Element_Instance *an_element = Ypython_Element_Instance();
-                an_element->type_ = Ypython_String("string");
-                an_element->name = Ypython_String(variable_name->string_->value);
-                an_element->general_value = variable_value;
+                an_element->_type = Ypython_String("string");
+                an_element->_name = Ypython_String(variable_name->string_->value);
+                an_element->_value = variable_value;
 
                 Type_Ypython_General *a_general_variable_that_can_hold_anything = Ypython_General();
                 a_general_variable_that_can_hold_anything->anything_ = an_element;
                 
-                global_variable_dict->function_set(global_variable_dict, variable_name->string_, a_general_variable_that_can_hold_anything);
+                variable_dict->function_set(variable_dict, variable_name->string_, a_general_variable_that_can_hold_anything);
             } else if ((a_line->function_is_substring(a_line, Ypython_String("print("))) && (a_line->function_is_substring(a_line, Ypython_String(")")))) {
                 Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("print("));
                 Type_Ypython_String *temp_string = part_list->function_get(part_list, 1)->string_;
@@ -72,11 +72,11 @@ void process(Type_Ypython_String *text_code) {
                 Type_Ypython_String *variable_name = Ypython_String(temp_string->value);
                 
                 // Get the value from dictionary
-                Type_Ypython_General *an_general_value = global_variable_dict->function_get(global_variable_dict, variable_name);
+                Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, variable_name);
                 
                 if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
                     Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
-                    ypython_print(an_element->general_value->string_);
+                    ypython_print(an_element->_value->string_);
                 } else {
                     //ypython_print(variable_name);
                 }
@@ -89,8 +89,9 @@ void process(Type_Ypython_String *text_code) {
                 
                 // Collect function body
                 Type_Ypython_String *function_body = Ypython_String("");
-                while (lines_list->iteration_not_done) {
-                    temp = lines_list->function_get_next_one(lines_list);
+                long long a_index = 0;
+                while (a_index < lines_list->length) {
+                    temp = lines_list->function_get(lines_list, a_index);
                     if (!temp->is_none) {
                         a_line = Ypython_String(temp->string_->value);
                         
@@ -102,6 +103,7 @@ void process(Type_Ypython_String *text_code) {
                             break;
                         }
                     }
+                    a_index += 1;
                 }
                 
                 // Store function definition
@@ -109,22 +111,24 @@ void process(Type_Ypython_String *text_code) {
                 function_body_general -> string_ = function_body;
 
                 Type_Ypython_Element_Instance *an_element = Ypython_Element_Instance();
-                an_element->type_ = Ypython_String("function");
-                an_element->name = Ypython_String(function_name->value);
-                an_element->general_value = function_body_general;
+                an_element->_type = Ypython_String("function");
+                an_element->_name = Ypython_String(function_name->value);
+                an_element->_value = function_body_general;
 
-                global_variable_dict->function_set(global_variable_dict, function_name, ypython_create_a_general_variable(an_element));
-            } else if (a_line->function_is_substring(a_line, Ypython_String("()"))) {
+                variable_dict->function_set(variable_dict, function_name, ypython_create_a_general_variable(an_element));
+            } else if (a_line->function_endswith(a_line, Ypython_String(")"))) {
                 // Handle function call
                 Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("("));
                 Type_Ypython_String *function_name = Ypython_String(part_list->function_get(part_list, 0)->string_->value);
                 
-                Type_Ypython_General *an_general_value = global_variable_dict->function_get(global_variable_dict, function_name);
+                Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, function_name);
                 if ((an_general_value != NULL) && (!an_general_value->is_none)) {
-                    Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->general_value);
+                    Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->_value);
                     if ((function_body_general != NULL) && (!function_body_general->is_none)) {
                         //ypython_print(function_body_general->string_);
-                        process(function_body_general->string_);
+                        Type_Ypython_Dict *new_dict = Ypython_Dict();
+                        new_dict = _Ypython_dict_inheritance(variable_dict, new_dict);
+                        process(function_body_general->string_, new_dict);
                     }
                 }
             }
@@ -200,7 +204,8 @@ int main(int argument_number, char **argument_list) {
                 Type_Ypython_String *new_character = Ypython_String(character_string);
                 file_content = file_content->function_add(file_content, new_character);
             }
-            process(file_content);
+
+            process(file_content, global_variable_dict);
         }
         _ypython_file_close(a_file);
     }
