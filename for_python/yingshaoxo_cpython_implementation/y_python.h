@@ -1,3 +1,7 @@
+// A thing to mention is: **Why python is 60 times slower than c code?** Because for each variable, for example, string variable, it has more data structure than char*. And when we parse the python code, it takes time.
+//
+//
+//
 // #ifndef stdio.h
 // #define stdio.h
 #include <stdio.h>
