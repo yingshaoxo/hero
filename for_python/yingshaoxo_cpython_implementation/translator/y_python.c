@@ -32,6 +32,27 @@ bool is_digital(Type_Ypython_String *a_string) {
     }
 }
 
+void convert_escape_chars(char *str) {
+    // copied from baidu ai
+    char *p = str;
+    while ((p = strstr(p, "\\n")) != NULL) {
+        *p = '\n';
+        memmove(p+1, p+2, strlen(p+2)+1);
+    }
+}
+
+Type_Ypython_General *convert_string_value_to_c_value(Type_Ypython_String *string_value) {
+    Type_Ypython_General *result = Ypython_General();
+
+    if ((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) {
+        Type_Ypython_String *pure_value = string_value->function_substring(string_value, 1, string_value->length-1);
+        result->string_ = pure_value;
+        convert_escape_chars(result->string_->value);
+    }
+
+    return result;
+}
+
 void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
     Type_Ypython_List *lines_list = ypython_string_type_function_split(text_code, Ypython_String("\n"));
     int line_index = 0;
@@ -49,14 +70,11 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                 Type_Ypython_General *variable_name = part_list->function_get(part_list, 0);
                 Type_Ypython_General *variable_value = part_list->function_get(part_list, 1);
                 
-                Type_Ypython_String *pure_value = variable_value->string_->function_substring(variable_value->string_, 1, variable_value->string_->length-1);
-                variable_value->string_ = pure_value;
-                
                 // Set the value in the dictionary
                 Type_Ypython_Element_Instance *an_element = Ypython_Element_Instance();
                 an_element->_type = Ypython_String("string");
                 an_element->_name = Ypython_String(variable_name->string_->value);
-                an_element->_value = variable_value;
+                an_element->_value = convert_string_value_to_c_value(variable_value->string_);
 
                 Type_Ypython_General *a_general_variable_that_can_hold_anything = Ypython_General();
                 a_general_variable_that_can_hold_anything->anything_ = an_element;
@@ -78,7 +96,7 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                     Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
                     ypython_print(an_element->_value->string_);
                 } else {
-                    //ypython_print(variable_name);
+                    ypython_print(convert_string_value_to_c_value(variable_name));
                 }
             } else if (a_line->function_is_substring(a_line, Ypython_String("def "))) {
                 // Handle function definition
