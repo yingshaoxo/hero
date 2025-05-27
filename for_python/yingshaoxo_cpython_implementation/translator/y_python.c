@@ -45,9 +45,18 @@ Type_Ypython_General *convert_string_value_to_c_value(Type_Ypython_String *strin
     Type_Ypython_General *result = Ypython_General();
 
     if ((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) {
+        // string
         Type_Ypython_String *pure_value = string_value->function_substring(string_value, 1, string_value->length-1);
         result->string_ = pure_value;
         convert_escape_chars(result->string_->value);
+    } else if (is_digital(string_value)) {
+        if (string_value->function_is_substring(string_value, Ypython_String("."))) {
+            // float
+            result->float_ = Ypython_Float(_ypython_string_to_float(string_value->value));
+        } else {
+            // int
+            result->int_ = Ypython_Int(_ypython_string_to_int(string_value->value));
+        }
     }
 
     return result;
@@ -94,7 +103,7 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                 
                 if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
                     Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
-                    ypython_print(an_element->_value->string_);
+                    ypython_print(an_element->_value);
                 } else {
                     ypython_print(convert_string_value_to_c_value(variable_name));
                 }

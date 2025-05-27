@@ -176,6 +176,14 @@ int _ypython_file_put_character(int character, FILE *pointer) {
     return fputc(character, pointer);
 }
 
+int _ypython_string_to_int(char *number_string) {
+    return atoi(number_string);
+}
+
+float _ypython_string_to_float(char *number_string) {
+    return atof(number_string);
+}
+
 
 /*
 ##################################################

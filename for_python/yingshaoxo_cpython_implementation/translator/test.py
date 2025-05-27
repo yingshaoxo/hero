@@ -13,6 +13,10 @@ a_function()
 
 def a_function2():
     no_way = "haha"
+    a_number = 12345
+    a_float_number = 2.3
     print(no_way)
+    print(a_number)
+    print(a_float_number)
 
 a_function2()
