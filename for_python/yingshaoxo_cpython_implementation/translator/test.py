@@ -18,8 +18,13 @@ def a_function2():
     print(no_way)
     print(a_number)
     print(a_float_number)
-    print(an_error_of_not_exists)
 
 a_function2()
+
+try:
+    print(an_error_of_not_exists)
+    print("will not print")
+except Exception as e:
+    print("try and except works")
 
 a_function3()

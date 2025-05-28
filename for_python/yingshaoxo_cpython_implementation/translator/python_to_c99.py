@@ -79,6 +79,7 @@ def get_text_until_closed_symbol(lines: list, start_symbol: str, end_symbol: str
     return result_text
 
 def pre_process_comments(text_code: str) -> str:
+    # actually it should also convert multiple line comments into one line comment, so that later it is easyier for handling.
     new_code = ""
     lines = text_code.split("\n")
     for line in lines:

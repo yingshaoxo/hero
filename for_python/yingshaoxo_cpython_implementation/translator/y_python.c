@@ -10,6 +10,7 @@ struct Type_Ypython_Element_Instance {
     Type_Ypython_String *_type;
     Type_Ypython_String *_name; // variable name, function name, class name
     Type_Ypython_General *_value; // in c, it is Ypython_General()
+    Type_Ypython_Dict *_information_dict; // in c, it is Ypython_General()
 };
 
 Type_Ypython_Element_Instance *Ypython_Element_Instance() {
@@ -18,7 +19,8 @@ Type_Ypython_Element_Instance *Ypython_Element_Instance() {
 
     new_element_instance->_type = Ypython_String("");
     new_element_instance->_name = Ypython_String("");
-    new_element_instance->_value = NULL;
+    new_element_instance->_value = Ypython_General();
+    new_element_instance->_information_dict = Ypython_Dict();
     
     return new_element_instance;
 }
@@ -39,6 +41,61 @@ void convert_escape_chars(char *str) {
         *p = '\n';
         memmove(p+1, p+2, strlen(p+2)+1);
     }
+}
+
+char *_get_indent_char_string(char *a_string) {
+    // copied from baidu ai
+    if (!a_string) {
+        return strdup("");
+    }
+    
+    char *start = a_string;
+    while (*start) {
+        if (*start != ' ' && *start != '\t') {
+            break;
+        }
+        start++;
+    }
+    
+    size_t indent_len = start - a_string;
+    char *indent = malloc(indent_len + 1);
+    if (!indent) {
+        return strdup("");
+    }
+    
+    strncpy(indent, a_string, indent_len);
+    indent[indent_len] = '\0';
+    return indent;
+}
+
+Type_Ypython_String *get_indent_string(Type_Ypython_String *a_string) {
+    //indent_number = base_line->length - base_line->function_strip(base_line, Ypython_String(" "))->length;
+    char *indent = _get_indent_char_string(a_string->value);
+    Type_Ypython_String *the_indent = Ypython_String(indent);
+    return the_indent;
+}
+
+Type_Ypython_String *get_code_block(Type_Ypython_List *lines_list, long long *line_index) {
+    Type_Ypython_String *code_block = Ypython_String("");
+    long long temp_index = *line_index + 1;
+    long long indent_number = 0;
+    if (temp_index < lines_list->length) {
+        Type_Ypython_String *base_line = lines_list->function_get(lines_list, temp_index)->string_;
+        indent_number = get_indent_string(base_line)->length;
+        while (temp_index < lines_list->length) {
+            Type_Ypython_String *temp_line = lines_list->function_get(lines_list, temp_index)->string_;
+            long long new_indent_number = get_indent_string(temp_line)->length;
+            Type_Ypython_String *pure_temp_line = temp_line->function_strip(temp_line, Ypython_String(" \n"));
+            if ((!pure_temp_line->function_is_equal(pure_temp_line, Ypython_String(""))) && (new_indent_number < indent_number)) {
+                break;
+            }
+            code_block = code_block->function_add(code_block, temp_line);
+            code_block = code_block->function_add(code_block, Ypython_String("\n"));
+            temp_index++;
+        }
+    }
+    *line_index = temp_index - 1;
+    return code_block;
 }
 
 Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value) {
@@ -90,9 +147,9 @@ Type_Ypython_Element_Instance *evaluate_code(Type_Ypython_String *string_value) 
     return convert_string_value_to_c_value(string_value);
 }
 
-void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
+Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
     Type_Ypython_List *lines_list = ypython_string_type_function_split(text_code, Ypython_String("\n"));
-    int line_index = 0;
+    long long line_index = 0;
     while (line_index < lines_list->length) {
         Type_Ypython_General *temp = lines_list->function_get(lines_list, line_index);
         if (!temp->is_none) {
@@ -137,7 +194,8 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                     } else {
                         // variable not found
                         the_value->_value->string_ = Ypython_String(_ypython_string_format("Error: '%s' can't get found in current variable content dict.", variable_name->value));
-                        ypython_print(the_value->_value);
+                        //ypython_print(the_value->_value);
+                        return the_value;
                     }
                 }
             } else if (a_line->function_is_substring(a_line, Ypython_String("def "))) {
@@ -146,25 +204,9 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                 Type_Ypython_String *temp_string = part_list->function_get(part_list, 1)->string_;
                 part_list = ypython_string_type_function_split(temp_string, Ypython_String("("));
                 Type_Ypython_String *function_name = Ypython_String(part_list->function_get(part_list, 0)->string_->value);
-                
                 // Collect function body
                 Type_Ypython_String *function_body = Ypython_String("");
-                long long a_index = 0;
-                while (a_index < lines_list->length) {
-                    temp = lines_list->function_get(lines_list, a_index);
-                    if (!temp->is_none) {
-                        a_line = Ypython_String(temp->string_->value);
-                        
-                        if (a_line->function_is_substring(a_line, Ypython_String("    "))) {
-                            Type_Ypython_String *clean_line = a_line->function_substring(a_line, 4, a_line->length);
-                            function_body = function_body->function_add(function_body, clean_line);
-                            function_body = function_body->function_add(function_body, Ypython_String("\n"));
-                        } else {
-                            break;
-                        }
-                    }
-                    a_index += 1;
-                }
+                function_body = get_code_block(lines_list, &line_index);
                 
                 // Store function definition
                 Type_Ypython_General *function_body_general = Ypython_General();
@@ -175,28 +217,66 @@ void process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
                 an_element->_name = Ypython_String(function_name->value);
                 an_element->_value = function_body_general;
 
+                // save function arguments
+                Type_Ypython_General *function_arguments_line = ypython_create_a_general_variable(a_line);
+                an_element->_information_dict->function_set(an_element->_information_dict, Ypython_String("function_arguments_line"), function_arguments_line);
+
                 variable_dict->function_set(variable_dict, function_name, ypython_create_a_general_variable(an_element));
             } else if (a_line->function_endswith(a_line, Ypython_String(")"))) {
                 // Handle function call
                 Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("("));
                 Type_Ypython_String *function_name = Ypython_String(part_list->function_get(part_list, 0)->string_->value);
-                
                 Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, function_name);
                 if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
+                    
                     Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->_value);
-                    //ypython_print(function_body_general->string_);
                     Type_Ypython_Dict *new_dict = Ypython_Dict();
                     new_dict = _Ypython_dict_inheritance(variable_dict, new_dict);
-                    process(function_body_general->string_, new_dict);
+                    Type_Ypython_Element_Instance *the_return_value = process(function_body_general->string_, new_dict);
+                    if (the_return_value != NULL) {
+                        if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
+                            return the_return_value;
+                        }
+                    }
                 } else {
                     Type_Ypython_String *error_message = Ypython_String(_ypython_string_format("Error: function '%s' can't get found in current variable content dict.", function_name->value));
-                    ypython_print(error_message);
+                    Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
+                    result_element->_type = Ypython_String("error");
+                    result_element->_value->string_ = error_message;
+                    return result_element;
+                }
+            } else if (a_line->function_startswith(a_line, Ypython_String("try:"))) {
+                Type_Ypython_String *try_code_block = get_code_block(lines_list, &line_index);
+
+                Type_Ypython_String *next_line = lines_list->function_get(lines_list, line_index + 1)->string_;
+                next_line = next_line->function_strip(next_line, Ypython_String("    \n"));
+                Type_Ypython_String *except_code_block = NULL;
+                if (next_line->function_startswith(next_line, Ypython_String("except "))) {
+                    line_index = line_index + 1;
+                    except_code_block = get_code_block(lines_list, &line_index);
+                }
+
+                Type_Ypython_Element_Instance *the_return_value = process(try_code_block, variable_dict);
+                if (the_return_value != NULL) {
+                    if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
+                        //ypython_print(the_return_value->_value);
+                        if (except_code_block != NULL) {
+                            Type_Ypython_Element_Instance *the_return_value_2 = process(except_code_block, variable_dict);
+                            if (the_return_value_2 != NULL) {
+                                if (the_return_value_2->_type->function_is_equal(the_return_value_2->_type, Ypython_String("error"))) {
+                                    return the_return_value_2;
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             line_index = line_index + 1;
         }
     }
+
+    return NULL;
 }
 
 int main(int argument_number, char **argument_list) {
@@ -266,7 +346,12 @@ int main(int argument_number, char **argument_list) {
                 file_content = file_content->function_add(file_content, new_character);
             }
 
-            process(file_content, global_variable_dict);
+            Type_Ypython_Element_Instance *the_return_value = process(file_content, global_variable_dict);
+            if (the_return_value != NULL) {
+                if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
+                    ypython_print(the_return_value->_value);
+                }
+            }
         }
         _ypython_file_close(a_file);
     }
