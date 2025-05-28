@@ -240,6 +240,10 @@ def general_print(an_element, end="\n"):
     else:
         print(an_element)
 
+def get_code_block(lines, line_index):
+    # you should return Error out in the process function, and also complete this function
+    pass
+
 def process(variable_dict, text_code):
     # handle code, mainly just for codes inside of a function
     lines = text_code.split("\n")

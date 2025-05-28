@@ -46,7 +46,25 @@ void _ypython_print_formated_string(const char* format, ...) {
 /*
 The sprintf() function is used to print formatted data to buffer.
 */
-#define _ypython_string_format(result_string, string_format, ...) sprintf(result_string, string_format, __VA_ARGS__);
+//#define _ypython_string_format(result_string, string_format, ...) sprintf(result_string, string_format, __VA_ARGS__);
+char* _ypython_string_format(const char* fmt, ...) {
+    // copied from baidu ai
+    va_list args;
+    va_start(args, fmt);
+    
+    int len = vsnprintf(NULL, 0, fmt, args);
+    if (len < 0) { va_end(args); return NULL; }
+    
+    char* buf = malloc(len + 1);
+    if (!buf) { va_end(args); return NULL; }
+    
+    va_end(args);
+    va_start(args, fmt);
+    vsnprintf(buf, len + 1, fmt, args);
+    va_end(args);
+    
+    return buf;
+}
 
 /*
 `scanf` is a function that stands for Scan Formatted String. It is used to read data from stdin (standard input stream i.e. usually keyboard) and then writes the result into the given arguments.
