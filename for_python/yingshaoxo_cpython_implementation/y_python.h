@@ -1917,7 +1917,9 @@ void ypython_raw_print(void *value)
 
     if (strcmp(((Type_Ypython_General *)value)->type, "general") == 0) {
         Type_Ypython_General *item = (Type_Ypython_General *)value;
-        if (item->string_ != NULL) {
+        if (item->is_none == true) {
+            ypython_raw_print(Ypython_String("None"));
+        } else if (item->string_ != NULL) {
             ypython_raw_print(item->string_);
         } else if (item->bool_ != NULL) {
             ypython_raw_print(item->bool_);

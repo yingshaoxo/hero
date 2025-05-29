@@ -39,3 +39,17 @@ if name == "yingshaoxo":
 
 if name == "shit":
     print("if not work for variables")
+
+def function_4():
+    tip = "the function return works fine"
+    return tip
+
+result_4 = function_4()
+print(result_4)
+
+def function_5()
+    print("it get runned")
+    return "100"
+
+if function_5() == "100":
+    print("function() in if expression works ok")

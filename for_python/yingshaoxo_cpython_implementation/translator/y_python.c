@@ -98,13 +98,48 @@ Type_Ypython_String *get_code_block(Type_Ypython_List *lines_list, long long *li
     return code_block;
 }
 
+// pre_define the process function
+Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict);
+
+Type_Ypython_Element_Instance *handle_function_call(Type_Ypython_String *a_line, Type_Ypython_Dict *variable_dict) {
+    Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("("));
+    Type_Ypython_String *function_name = Ypython_String(part_list->function_get(part_list, 0)->string_->value);
+    Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, function_name);
+    if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
+        
+        Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->_value);
+        Type_Ypython_Dict *new_dict = Ypython_Dict();
+        new_dict = _Ypython_dict_inheritance(variable_dict, new_dict);
+        Type_Ypython_Element_Instance *the_return_element = process(function_body_general->string_, new_dict);
+        return the_return_element;
+    } else {
+        Type_Ypython_String *error_message = Ypython_String(_ypython_string_format("Error: function '%s' can't get found in current variable content dict.", function_name->value));
+        Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
+        result_element->_type = Ypython_String("error");
+        result_element->_value->string_ = error_message;
+        return result_element;
+    }
+
+    // return none by default
+    Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
+    result_element->_type = Ypython_String("none");
+    Type_Ypython_General *result_value = Ypython_General();
+    result_value->is_none = true;
+    result_element->_value = result_value;
+    return result_element;
+}
+
 Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value, Type_Ypython_Dict *variable_dict) {
     string_value = string_value->function_strip(string_value, Ypython_String(" "));
 
     Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
     Type_Ypython_General *result_value = Ypython_General();
 
-    if (string_value->function_is_equal(string_value, Ypython_String("True"))) {
+    if (string_value->function_is_equal(string_value, Ypython_String("None"))) {
+        // none
+        result_element->_type = Ypython_String("none");
+        result_value->is_none = true;
+    } else if (string_value->function_is_equal(string_value, Ypython_String("True"))) {
         // true
         result_element->_type = Ypython_String("bool");
         result_value->bool_ = Ypython_Bool(true);
@@ -129,7 +164,7 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
             result_element->_type = Ypython_String("int");
             result_value->int_ = Ypython_Int(_ypython_string_to_int(string_value->value));
         }
-    } else if (string_value->function_is_equal(string_value, Ypython_String(""))) {
+    } else if (string_value->length == 0) {
         // has no value
         result_element->_type = Ypython_String("ignore");
     } else if ((string_value->function_startswith(string_value, Ypython_String("["))) && (string_value->function_endswith(string_value, Ypython_String("]")))) {
@@ -156,6 +191,9 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         } else {
             result_value->bool_ = Ypython_Bool(false);
         }
+    } else if ((string_value->function_endswith(string_value, Ypython_String(")"))) && (!string_value->function_startswith(string_value, Ypython_String("(")))) {
+        // it is a function call, we should let process() function to handle it
+        return handle_function_call(string_value, variable_dict);
     } else {
         // error, it is not a valid python literal value, maybe it is a variable name
         Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, string_value);
@@ -166,7 +204,7 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         } else {
             // it is not a valid python literal value
             result_element->_type = Ypython_String("error");
-            char *error_message = _ypython_string_format("Error: %s is not a valid python value.", string_value);
+            char *error_message = _ypython_string_format("Error: %s is not a valid python value.", string_value->value);
             result_value->string_ = Ypython_String(error_message);
         }
     }
@@ -256,28 +294,11 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 an_element->_information_dict->function_set(an_element->_information_dict, Ypython_String("function_arguments_line"), function_arguments_line);
 
                 variable_dict->function_set(variable_dict, function_name, ypython_create_a_general_variable(an_element));
-            } else if (a_line->function_endswith(a_line, Ypython_String(")"))) {
+            } else if ((a_line->function_endswith(a_line, Ypython_String(")"))) && (!a_line->function_startswith(a_line, Ypython_String("(")))) {
                 // Handle function call
-                Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("("));
-                Type_Ypython_String *function_name = Ypython_String(part_list->function_get(part_list, 0)->string_->value);
-                Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, function_name);
-                if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
-                    
-                    Type_Ypython_General *function_body_general = (((Type_Ypython_Element_Instance*)(an_general_value->anything_))->_value);
-                    Type_Ypython_Dict *new_dict = Ypython_Dict();
-                    new_dict = _Ypython_dict_inheritance(variable_dict, new_dict);
-                    Type_Ypython_Element_Instance *the_return_value = process(function_body_general->string_, new_dict);
-                    if (the_return_value != NULL) {
-                        if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
-                            return the_return_value;
-                        }
-                    }
-                } else {
-                    Type_Ypython_String *error_message = Ypython_String(_ypython_string_format("Error: function '%s' can't get found in current variable content dict.", function_name->value));
-                    Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
-                    result_element->_type = Ypython_String("error");
-                    result_element->_value->string_ = error_message;
-                    return result_element;
+                Type_Ypython_Element_Instance *the_return_element = handle_function_call(a_line, variable_dict);
+                if ((the_return_element != NULL) && (the_return_element->_type->function_is_equal(the_return_element->_type, Ypython_String("error")))) {
+                    return the_return_element;
                 }
             } else if (a_line->function_startswith(a_line, Ypython_String("try:"))) {
                 // Handle try and except logic
@@ -292,16 +313,12 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 }
 
                 Type_Ypython_Element_Instance *the_return_value = process(try_code_block, variable_dict);
-                if (the_return_value != NULL) {
-                    if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
-                        //ypython_print(the_return_value->_value);
-                        if (except_code_block != NULL) {
-                            Type_Ypython_Element_Instance *the_return_value_2 = process(except_code_block, variable_dict);
-                            if (the_return_value_2 != NULL) {
-                                if (the_return_value_2->_type->function_is_equal(the_return_value_2->_type, Ypython_String("error"))) {
-                                    return the_return_value_2;
-                                }
-                            }
+                if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
+                    //ypython_print(the_return_value->_value);
+                    Type_Ypython_Element_Instance *the_return_value_2 = process(except_code_block, variable_dict);
+                    if (the_return_value_2 != NULL) {
+                        if (the_return_value_2->_type->function_is_equal(the_return_value_2->_type, Ypython_String("error"))) {
+                            return the_return_value_2;
                         }
                     }
                 }
@@ -315,18 +332,30 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 if (verifying_element->_type->function_is_equal(verifying_element->_type, Ypython_String("bool"))) {
                     if (verifying_element->_value->bool_->value == true) {
                         Type_Ypython_Element_Instance *the_return_value = process(if_code_block, variable_dict);
-                        if ((the_return_value != NULL) && (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error")))) {
+                        if (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error"))) {
                             return the_return_value;
                         }
                     }
                 }
+            } else if (a_line->function_startswith(a_line, Ypython_String("return "))) {
+                Type_Ypython_List *parts = ypython_string_type_function_split(a_line, Ypython_String("return "));
+                Type_Ypython_String *the_return_variable_name = parts->function_get(parts, 1)->string_;
+
+                Type_Ypython_Element_Instance *the_return_element = evaluate_code(the_return_variable_name, variable_dict);
+                return the_return_element;
             }
 
             line_index = line_index + 1;
         }
     }
 
-    return NULL;
+    // return none by default
+    Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
+    result_element->_type = Ypython_String("none");
+    Type_Ypython_General *result_value = Ypython_General();
+    result_value->is_none = true;
+    result_element->_value = result_value;
+    return result_element;
 }
 
 int main(int argument_number, char **argument_list) {
