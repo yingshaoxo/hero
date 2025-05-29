@@ -17,6 +17,7 @@ class Python_Element_Instance():
         self.type = "None"
         self.name = None # variable name, function name, class name
         self.general_value = None # in c, it is Ypython_General()
+        self.information = {}
 
 def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
     global global_variable_dict
@@ -241,8 +242,19 @@ def general_print(an_element, end="\n"):
         print(an_element)
 
 def get_code_block(lines, line_index):
-    # you should return Error out in the process function, and also complete this function
-    pass
+    temp_index = line_index + 1
+    temp_code_block = ""
+    base_line = lines[temp_index]
+    indents_number = len(base_line) - len(base_line.lstrip())
+    while temp_index < len(lines):
+        temp_line = lines[temp_index]
+        new_indents_number = len(temp_line) - len(temp_line.lstrip())
+        if temp_line.strip()!="" and new_indents_number < indents_number:
+            break
+        temp_code_block += temp_line + "\n"
+        temp_index += 1
+    line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
+    return temp_code_block, line_index
 
 def process(variable_dict, text_code):
     # handle code, mainly just for codes inside of a function
@@ -277,18 +289,7 @@ def process(variable_dict, text_code):
         elif line.strip().startswith("while "):
             while_line = line
 
-            temp_index = line_index + 1
-            temp_code_block = ""
-            base_line = lines[temp_index]
-            indents_number = len(base_line) - len(base_line.lstrip())
-            while temp_index < len(lines):
-                temp_line = lines[temp_index]
-                new_indents_number = len(temp_line) - len(temp_line.lstrip())
-                if temp_line.strip()!="" and new_indents_number < indents_number:
-                    break
-                temp_code_block += temp_line + "\n"
-                temp_index += 1
-            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
+            temp_code_block, line_index = get_code_block(lines, line_index)
 
             an_element = Python_Element_Instance()
             an_element.type = "bool"
@@ -364,19 +365,9 @@ def process(variable_dict, text_code):
             end_of_a_function_new_line_counting = 0
 
             function_code += lines[line_index] + "\n" #try to save the function arguments
-            temp_index = line_index + 1
-            base_line = lines[temp_index]
-            indents_number = len(base_line) - len(base_line.lstrip())
-            while temp_index < len(lines):
-                temp_line = lines[temp_index]
 
-                temp_indents_number = len(lines[temp_index]) - len(lines[temp_index].lstrip())
-                if lines[temp_index].strip()!="" and temp_indents_number < indents_number:
-                    break
-
-                function_code += temp_line + "\n"
-                temp_index += 1
-            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
+            temp_code_block, line_index = get_code_block(lines, line_index)
+            function_code += temp_code_block
 
             an_element = Python_Element_Instance()
             an_element.type = "function"
@@ -389,18 +380,7 @@ def process(variable_dict, text_code):
         elif line.strip().startswith("class "):
             class_name = line.split("class ")[1].split(":")[0].split("()")[0].strip()
 
-            temp_index = line_index + 1
-            temp_code_block = ""
-            base_line = lines[temp_index]
-            indents_number = len(base_line) - len(base_line.lstrip())
-            while temp_index < len(lines):
-                temp_line = lines[temp_index]
-                new_indents_number = len(temp_line) - len(temp_line.lstrip())
-                if temp_line.strip()!="" and new_indents_number < indents_number:
-                    break
-                temp_code_block += temp_line + "\n"
-                temp_index += 1
-            line_index = temp_index - 1 #if the code block search stop on new code block, it should minus 1
+            temp_code_block, line_index = get_code_block(lines, line_index)
 
             an_element = Python_Element_Instance()
             an_element.type = "class"
