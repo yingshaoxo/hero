@@ -34,5 +34,8 @@ if 2 == 2:
     print("if works for literal characters")
 
 
-#if name == "yingshaoxo":
-#    print("if works for variables")
+if name == "yingshaoxo":
+    print("if works for variables")
+
+if name == "shit":
+    print("if not work for variables")

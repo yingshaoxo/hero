@@ -98,7 +98,7 @@ Type_Ypython_String *get_code_block(Type_Ypython_List *lines_list, long long *li
     return code_block;
 }
 
-Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value) {
+Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value, Type_Ypython_Dict *variable_dict) {
     string_value = string_value->function_strip(string_value, Ypython_String(" "));
 
     Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
@@ -148,10 +148,8 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         Type_Ypython_General *part_a = temp_list->function_get(temp_list, 0);
         Type_Ypython_General *part_b = temp_list->function_get(temp_list, 1);
 
-        Type_Ypython_Element_Instance *element_a = convert_string_value_to_c_value(part_a->string_);
-        Type_Ypython_Element_Instance *element_b = convert_string_value_to_c_value(part_b->string_);
-
-        // todo: maybe I should make the process() function a global variable, then in process() function, if we meet an unknown string, we would try to treat it as variable name and return its value. To do this, I'd better pass the variable_dict into this function
+        Type_Ypython_Element_Instance *element_a = convert_string_value_to_c_value(part_a->string_, variable_dict);
+        Type_Ypython_Element_Instance *element_b = convert_string_value_to_c_value(part_b->string_, variable_dict);
 
         if (element_a->_value->function_is_equal(element_a->_value, element_b->_value)) {
             result_value->bool_ = Ypython_Bool(true);
@@ -159,20 +157,28 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
             result_value->bool_ = Ypython_Bool(false);
         }
     } else {
-        // error, it is not a valid python value
-        result_element->_type = Ypython_String("error");
-        char *error_message = _ypython_string_format("Error: %s is not a valid python value.", string_value);
-        result_value->string_ = Ypython_String(error_message);
+        // error, it is not a valid python literal value, maybe it is a variable name
+        Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, string_value);
+        if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
+            // it is a variable
+            Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
+            result_value = an_element->_value;
+        } else {
+            // it is not a valid python literal value
+            result_element->_type = Ypython_String("error");
+            char *error_message = _ypython_string_format("Error: %s is not a valid python value.", string_value);
+            result_value->string_ = Ypython_String(error_message);
+        }
     }
 
     result_element->_value = result_value;
     return result_element;
 }
 
-Type_Ypython_Element_Instance *evaluate_code(Type_Ypython_String *string_value) {
+Type_Ypython_Element_Instance *evaluate_code(Type_Ypython_String *string_value, Type_Ypython_Dict *variable_dict) {
     // it will handle any calculation in a line and that line should not contain = symbol
     // it is similar to eval() in python
-    return convert_string_value_to_c_value(string_value);
+    return convert_string_value_to_c_value(string_value, variable_dict);
 }
 
 Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypython_Dict *variable_dict) {
@@ -193,7 +199,7 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 Type_Ypython_General *variable_value = part_list->function_get(part_list, 1);
                 
                 // Set the value in the dictionary
-                Type_Ypython_Element_Instance *an_element = evaluate_code(variable_value->string_);
+                Type_Ypython_Element_Instance *an_element = evaluate_code(variable_value->string_, variable_dict);
 
                 Type_Ypython_General *a_general_variable_that_can_hold_anything = Ypython_General();
                 a_general_variable_that_can_hold_anything->anything_ = an_element;
@@ -215,7 +221,7 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                     Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
                     ypython_print(an_element->_value);
                 } else {
-                    Type_Ypython_Element_Instance *the_value = evaluate_code(variable_name);
+                    Type_Ypython_Element_Instance *the_value = evaluate_code(variable_name, variable_dict);
                     if (!the_value->_type->function_is_equal(the_value->_type, Ypython_String("error"))) {
                         // normal literal value
                         ypython_print(the_value->_value);
@@ -305,7 +311,7 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 Type_Ypython_String *if_code_block = get_code_block(lines_list, &line_index);
 
                 Type_Ypython_String *verifying = if_line->function_substring(if_line, 3, if_line->length-1);
-                Type_Ypython_Element_Instance *verifying_element = evaluate_code(verifying);
+                Type_Ypython_Element_Instance *verifying_element = evaluate_code(verifying, variable_dict);
                 if (verifying_element->_type->function_is_equal(verifying_element->_type, Ypython_String("bool"))) {
                     if (verifying_element->_value->bool_->value == true) {
                         Type_Ypython_Element_Instance *the_return_value = process(if_code_block, variable_dict);
