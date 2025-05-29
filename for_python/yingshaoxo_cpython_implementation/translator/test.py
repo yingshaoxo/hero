@@ -27,4 +27,12 @@ try:
 except Exception as e:
     print("try and except works")
 
-a_function3()
+if 1 == 2:
+    function3()
+
+if 2 == 2:
+    print("if works for literal characters")
+
+
+#if name == "yingshaoxo":
+#    print("if works for variables")

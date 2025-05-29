@@ -99,10 +99,20 @@ Type_Ypython_String *get_code_block(Type_Ypython_List *lines_list, long long *li
 }
 
 Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value) {
+    string_value = string_value->function_strip(string_value, Ypython_String(" "));
+
     Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
     Type_Ypython_General *result_value = Ypython_General();
 
-    if ((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) {
+    if (string_value->function_is_equal(string_value, Ypython_String("True"))) {
+        // true
+        result_element->_type = Ypython_String("bool");
+        result_value->bool_ = Ypython_Bool(true);
+    } else if (string_value->function_is_equal(string_value, Ypython_String("False"))) {
+        // false
+        result_element->_type = Ypython_String("bool");
+        result_value->bool_ = Ypython_Bool(false);
+    } else if ((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) {
         // string
         result_element->_type = Ypython_String("string");
 
@@ -130,6 +140,24 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         // dict
         result_element->_type = Ypython_String("dict");
         result_value->dict_ = Ypython_Dict();
+    } else if (string_value->function_is_substring(string_value, Ypython_String(" == "))) {
+        // handle == case, should return a bool value
+        result_element->_type = Ypython_String("bool");
+
+        Type_Ypython_List *temp_list = ypython_string_type_function_split(string_value, Ypython_String(" == "));
+        Type_Ypython_General *part_a = temp_list->function_get(temp_list, 0);
+        Type_Ypython_General *part_b = temp_list->function_get(temp_list, 1);
+
+        Type_Ypython_Element_Instance *element_a = convert_string_value_to_c_value(part_a->string_);
+        Type_Ypython_Element_Instance *element_b = convert_string_value_to_c_value(part_b->string_);
+
+        // todo: maybe I should make the process() function a global variable, then in process() function, if we meet an unknown string, we would try to treat it as variable name and return its value. To do this, I'd better pass the variable_dict into this function
+
+        if (element_a->_value->function_is_equal(element_a->_value, element_b->_value)) {
+            result_value->bool_ = Ypython_Bool(true);
+        } else {
+            result_value->bool_ = Ypython_Bool(false);
+        }
     } else {
         // error, it is not a valid python value
         result_element->_type = Ypython_String("error");
@@ -246,6 +274,7 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                     return result_element;
                 }
             } else if (a_line->function_startswith(a_line, Ypython_String("try:"))) {
+                // Handle try and except logic
                 Type_Ypython_String *try_code_block = get_code_block(lines_list, &line_index);
 
                 Type_Ypython_String *next_line = lines_list->function_get(lines_list, line_index + 1)->string_;
@@ -267,6 +296,21 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                                     return the_return_value_2;
                                 }
                             }
+                        }
+                    }
+                }
+            } else if (a_line->function_startswith(a_line, Ypython_String("if "))) {
+                // Handle if code block
+                Type_Ypython_String *if_line = lines_list->function_get(lines_list, line_index)->string_;
+                Type_Ypython_String *if_code_block = get_code_block(lines_list, &line_index);
+
+                Type_Ypython_String *verifying = if_line->function_substring(if_line, 3, if_line->length-1);
+                Type_Ypython_Element_Instance *verifying_element = evaluate_code(verifying);
+                if (verifying_element->_type->function_is_equal(verifying_element->_type, Ypython_String("bool"))) {
+                    if (verifying_element->_value->bool_->value == true) {
+                        Type_Ypython_Element_Instance *the_return_value = process(if_code_block, variable_dict);
+                        if ((the_return_value != NULL) && (the_return_value->_type->function_is_equal(the_return_value->_type, Ypython_String("error")))) {
+                            return the_return_value;
                         }
                     }
                 }

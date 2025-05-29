@@ -368,12 +368,22 @@ def parse_code(text_code: str, just_return_one_element: bool=False, global_code=
             an_element._value = line
             function_name = line.split("(")[0]
             function_arguments = line.split("(")[1].split(")")[0]
+            an_element._information["function_name"] = function_name
             if "." in function_name:
-                class_instance_name, function_name = line.split(".")
+                class_instance_name, function_name = function_name.split(".")
+                an_element._information["function_name"] = function_name
                 an_element._information["is_class_function"] = True
                 an_element._information["class_instance_name"] = class_instance_name
-            an_element._information["function_name"] = function_name
             an_element._information["function_arguments"] = function_arguments
+        elif line.endswith("]") and not line.startswith("["):
+            # it is asking for a value from a list or dict by key
+            an_element = Python_Element_Instance()
+            an_element._type = "get_value_from_dict_or_list"
+            an_element._value = line
+            list_or_dict_name = line.split("[")[0]
+            index_or_key = line.split("[")[1].split("]")[0]
+            an_element._information["list_or_dict_name"] = list_or_dict_name
+            an_element._information["index_or_key"] = index_or_key
         else:
             an_element = parse_code_by_char(original_line)
 
@@ -421,6 +431,7 @@ def _to_c99_type_from_python_type(type_string: str) -> str:
 
 def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -> str:
     an_element = parse_code(value_string)
+    translated_code = ""
 
     if len(an_element._children) >= 1:
         an_element = an_element._children[0]
@@ -439,7 +450,6 @@ def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -
     elif ("variable_name" in information_dict) and ("use_general_value" in information_dict):
         variable_name = information_dict["variable_name"]
 
-        translated_code = ""
         if 1 == 2:
             pass
         elif an_element._type == "list":
@@ -467,6 +477,12 @@ def _to_c99_value_from_python_value(value_string: str, information_dict: dict) -
         elif an_element._type == "dict":
             part_1 = "Ypython_Dict(" + ")"
             translated_code = "Type_Ypython_Dict *{variable_name} = {basic_value};".format(variable_name=variable_name, basic_value=part_1)
+        elif an_element._type == "get_value_from_dict_or_list":
+            list_or_dict_name = an_element._information["list_or_dict_name"]
+            index_or_key = an_element._information["index_or_key"]
+            if not index_or_key.isdigit():
+                index_or_key = 'Ypython_String("' + index_or_key + '")'
+            translated_code = "Type_Ypython_General *{variable_name} = {list_or_dict_name}->function_get({list_or_dict_name}, {index_or_key});".format(variable_name=variable_name, list_or_dict_name=list_or_dict_name, index_or_key=index_or_key)
         return translated_code
     else:
         translated_code = ""
@@ -606,13 +622,20 @@ new_element_instance->{function_name} = &Type_{class_name}_{function_name};
         #print(translated_code)
     elif a_python_element._type == "function_call":
         if "is_class_function" in a_python_element._information:
-            translated_code += a_python_element._information["class_instance_name"] + "->" + a_python_element._information["function_name"] + "(" + a_python_element._information["function_arguments"] + ")" + ";"
+            if a_python_element._information["function_name"] == "split":
+                translated_code += "ypython_string_type_function_split(" + a_python_element._information["class_instance_name"] + ", " + 'Ypython_String(' + a_python_element._information["function_arguments"] + '))' + ";"
+            elif a_python_element._information["function_name"] == "strip":
+                translated_code += a_python_element._information["class_instance_name"] + "->function_strip(" + a_python_element._information["class_instance_name"] + ", Ypython_String(" + a_python_element._information["function_arguments"] + '))' + ";"
+            else:
+                translated_code += a_python_element._information["class_instance_name"] + "->" + a_python_element._information["function_name"] + "(" + a_python_element._information["function_arguments"] + ")" + ";"
         else:
             translated_code += a_python_element._information["function_name"] + "(" + a_python_element._information["function_arguments"] + ")" + ";"
     elif a_python_element._type == "variable_assignment":
         indents_string = a_python_element._information["indent_string"]
         key, value = a_python_element._name, a_python_element._value
-        translated_code += _to_c99_value_from_python_value(value.strip(), {"variable_name": key, "level": 0, "number_count": 0, "indents_string": indents_string}) + "\n"
+        new_information = a_python_element._information.copy()
+        new_information.update({"variable_name": key, "level": 0, "number_count": 0, "indents_string": indents_string})
+        translated_code += _to_c99_value_from_python_value(value.strip(), new_information) + "\n"
     elif len(a_python_element._children) != 0:
         for child in a_python_element._children:
             translated_code += tranalste_to_c99(child)
