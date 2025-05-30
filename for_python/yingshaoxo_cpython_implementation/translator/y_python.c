@@ -130,6 +130,7 @@ Type_Ypython_Element_Instance *handle_function_call(Type_Ypython_String *a_line,
 }
 
 Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_String *string_value, Type_Ypython_Dict *variable_dict) {
+    // todo: you should rewrite this function by using char to char stream parsing technology, for example, when you meet [, you get all other char one by one until ]. You just have to make sure their are balanced, [], {}, (), "", ''.
     string_value = string_value->function_strip(string_value, Ypython_String(" "));
 
     Type_Ypython_Element_Instance *result_element = Ypython_Element_Instance();
@@ -147,8 +148,9 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         // false
         result_element->_type = Ypython_String("bool");
         result_value->bool_ = Ypython_Bool(false);
-    } else if ((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) {
+    } else if (((string_value->function_startswith(string_value, Ypython_String("\""))) && (string_value->function_endswith(string_value, Ypython_String("\"")))) && (!string_value->function_is_substring(string_value, Ypython_String("\" + \"")))) {
         // string
+        // debug: there may has many bugs, because anything can be found in a string, which causes bugs, for example '"a" == "b"' will be treated as a sting, which is wrong
         result_element->_type = Ypython_String("string");
 
         Type_Ypython_String *pure_value = string_value->function_substring(string_value, 1, string_value->length-1);
@@ -214,15 +216,15 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         Type_Ypython_Element_Instance *element_a = convert_string_value_to_c_value(part_a->string_, variable_dict);
         Type_Ypython_Element_Instance *element_b = convert_string_value_to_c_value(part_b->string_, variable_dict);
 
-        if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("int"))) {
-            result_element->_type = Ypython_String("int");
-            result_value = ypython_create_a_general_variable(element_a->_value->int_->function_add(element_a->_value->int_, element_b->_value->int_));
+        if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("string"))) {
+            result_element->_type = Ypython_String("string");
+            result_value = ypython_create_a_general_variable(element_a->_value->string_->function_add(element_a->_value->string_, element_b->_value->string_));
         } else if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("float"))) {
             result_element->_type = Ypython_String("float");
             result_value = ypython_create_a_general_variable(element_a->_value->float_->function_add(element_a->_value->float_, element_b->_value->float_));
-        } else if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("string"))) {
-            result_element->_type = Ypython_String("string");
-            result_value = ypython_create_a_general_variable(element_a->_value->string_->function_add(element_a->_value->string_, element_b->_value->string_));
+        } else {
+            result_element->_type = Ypython_String("int");
+            result_value = ypython_create_a_general_variable(element_a->_value->int_->function_add(element_a->_value->int_, element_b->_value->int_));
         }
     } else if ((string_value->function_endswith(string_value, Ypython_String(")"))) && (!string_value->function_startswith(string_value, Ypython_String("(")))) {
         // it is a function call, we should let process() function to handle it
