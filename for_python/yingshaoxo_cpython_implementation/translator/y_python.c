@@ -243,32 +243,18 @@ Type_Ypython_Element_Instance *process(Type_Ypython_String *text_code, Type_Ypyt
                 a_general_variable_that_can_hold_anything->anything_ = an_element;
                 
                 variable_dict->function_set(variable_dict, variable_name->string_, a_general_variable_that_can_hold_anything);
-            } else if ((a_line->function_is_substring(a_line, Ypython_String("print("))) && (a_line->function_is_substring(a_line, Ypython_String(")")))) {
-                Type_Ypython_List *part_list = ypython_string_type_function_split(a_line, Ypython_String("print("));
-                Type_Ypython_String *temp_string = part_list->function_get(part_list, 1)->string_;
-                part_list = ypython_string_type_function_split(temp_string, Ypython_String(")"));
-                temp_string = part_list->function_get(part_list, 0)->string_;
+            } else if ((a_line->function_startswith(a_line, Ypython_String("print("))) && (a_line->function_endswith(a_line, Ypython_String(")")))) {
+                Type_Ypython_String *variable_name = a_line->function_substring(a_line, 6, a_line->length-1);
                 
-                // Create a new string for the variable name
-                Type_Ypython_String *variable_name = Ypython_String(temp_string->value);
-                
-                // Get the value from dictionary
-                Type_Ypython_General *an_general_value = variable_dict->function_get(variable_dict, variable_name);
-                
-                if (an_general_value != NULL && !an_general_value->is_none && an_general_value->anything_ != NULL) {
-                    Type_Ypython_Element_Instance *an_element = (Type_Ypython_Element_Instance*)(an_general_value->anything_);
-                    ypython_print(an_element->_value);
+                Type_Ypython_Element_Instance *the_value = evaluate_code(variable_name, variable_dict);
+                if (!the_value->_type->function_is_equal(the_value->_type, Ypython_String("error"))) {
+                    // normal literal value
+                    ypython_print(the_value->_value);
                 } else {
-                    Type_Ypython_Element_Instance *the_value = evaluate_code(variable_name, variable_dict);
-                    if (!the_value->_type->function_is_equal(the_value->_type, Ypython_String("error"))) {
-                        // normal literal value
-                        ypython_print(the_value->_value);
-                    } else {
-                        // variable not found
-                        the_value->_value->string_ = Ypython_String(_ypython_string_format("Error: '%s' can't get found in current variable content dict.", variable_name->value));
-                        //ypython_print(the_value->_value);
-                        return the_value;
-                    }
+                    // variable not found
+                    the_value->_value->string_ = Ypython_String(_ypython_string_format("Error: '%s' can't get found in current variable content dict.", variable_name->value));
+                    //ypython_print(the_value->_value);
+                    return the_value;
                 }
             } else if (a_line->function_is_substring(a_line, Ypython_String("def "))) {
                 // Handle function definition
