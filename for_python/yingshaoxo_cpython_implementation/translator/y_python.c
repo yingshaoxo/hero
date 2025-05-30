@@ -207,8 +207,6 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
             result_value->bool_ = Ypython_Bool(false);
         }
     } else if (string_value->function_is_substring(string_value, Ypython_String(" + "))) {
-        result_element->_type = Ypython_String("int"); // need to think about this, what kind of type it should be
-
         Type_Ypython_List *temp_list = ypython_string_type_function_split(string_value, Ypython_String(" + "));
         Type_Ypython_General *part_a = temp_list->function_get(temp_list, 0);
         Type_Ypython_General *part_b = temp_list->function_get(temp_list, 1);
@@ -216,7 +214,16 @@ Type_Ypython_Element_Instance *convert_string_value_to_c_value(Type_Ypython_Stri
         Type_Ypython_Element_Instance *element_a = convert_string_value_to_c_value(part_a->string_, variable_dict);
         Type_Ypython_Element_Instance *element_b = convert_string_value_to_c_value(part_b->string_, variable_dict);
 
-        result_value = ypython_create_a_general_variable(element_a->_value->int_->function_add(element_a->_value->int_, element_b->_value->int_));
+        if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("int"))) {
+            result_element->_type = Ypython_String("int");
+            result_value = ypython_create_a_general_variable(element_a->_value->int_->function_add(element_a->_value->int_, element_b->_value->int_));
+        } else if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("float"))) {
+            result_element->_type = Ypython_String("float");
+            result_value = ypython_create_a_general_variable(element_a->_value->float_->function_add(element_a->_value->float_, element_b->_value->float_));
+        } else if (element_a->_type->function_is_equal(element_a->_type, Ypython_String("string"))) {
+            result_element->_type = Ypython_String("string");
+            result_value = ypython_create_a_general_variable(element_a->_value->string_->function_add(element_a->_value->string_, element_b->_value->string_));
+        }
     } else if ((string_value->function_endswith(string_value, Ypython_String(")"))) && (!string_value->function_startswith(string_value, Ypython_String("(")))) {
         // it is a function call, we should let process() function to handle it
         return handle_function_call(string_value, variable_dict);
