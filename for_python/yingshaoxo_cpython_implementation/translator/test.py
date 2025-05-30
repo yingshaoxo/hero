@@ -53,3 +53,11 @@ def function_5()
 
 if function_5() == "100":
     print("function() in if expression works ok")
+
+a_index = 0
+while True:
+    print(a_index)
+    print("while loop works")
+    a_index = a_index + 1
+    if a_index == 3:
+        break
