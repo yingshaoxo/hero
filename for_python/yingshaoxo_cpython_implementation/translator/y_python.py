@@ -46,135 +46,176 @@ def get_text_until_closed_symbol(code_text, start_symbol, end_symbol):
 
     return result_text, index
 
-def expression_segment_extraction(a_line_of_code):
+def expression_segment_extraction(variable_dict, a_line_of_code):
+    a_line_of_code += " "
     a_list_of_string_segment = []
-    while len(a_line_of_code) > 0:
-        recording_status = False
-        temp_string = ""
-        index = 0
-        previous_character = ""
-        type = None
-        balance_counting = 0 # need to find a way to make sure [[]] output [[]] than [[]
-        while index < len(a_line_of_code):
-            if index > 0:
-                previous_character = a_line_of_code[index-1]
-            character = a_line_of_code[index]
-            if previous_character != "\\":
-                if character == "'" and recording_status == False:
-                    temp_string += "'"
-                    recording_status = True
-                    index += 1
-                    type = "'"
-                    continue
-                elif character == "'" and recording_status == True and type == "'":
-                    recording_status = False
-                    index += 1
-                    temp_string += "'"
-                    break
-                elif character == '"' and recording_status == False:
-                    temp_string += '"'
-                    recording_status = True
-                    index += 1
-                    type = '"'
-                    continue
-                elif character == '"' and recording_status == True and type == '"':
-                    recording_status = False
-                    index += 1
-                    temp_string += '"'
-                    break
-                elif character == '(' and recording_status == False:
-                    temp_string, new_index = get_text_until_closed_symbol(a_line_of_code, "(", ")")
-                    index = new_index
-                    break
-                elif character == '[' and recording_status == False:
-                    temp_string, new_index = get_text_until_closed_symbol(a_line_of_code, "[", "]")
-                    index = new_index
-                    break
-                elif character == '{' and recording_status == False:
-                    temp_string, new_index = get_text_until_closed_symbol(a_line_of_code, "{", "}")
-                    index = new_index
-                    break
-                elif (character.isdigit() or ((previous_character.isdigit()) and (character == "."))) and recording_status == False:
-                    temp_string = character
-                    recording_status = True
-                    index += 1
-                    type = 'number'
-                    continue
-                elif ((not character.isdigit()) and (not character == ".")) and recording_status == True and type == 'number':
-                    recording_status = False
-                    index += 1
-                    break
-                elif (character.isalpha() and ((previous_character == "") or (previous_character == " "))) and recording_status == False:
-                    type = 'function_call'
-                    function_name = a_line_of_code[index:].split("(")[0]
-                    other_function_string, new_index = get_text_until_closed_symbol(a_line_of_code[len(function_name):], "(", ")")
-                    temp_string = function_name + other_function_string
-                    index += 1 + len(function_name) + new_index
-                    break
-                elif character == '+' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif character == '-' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif character == '*' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif character == '/' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif character == '>' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif character == '<' and recording_status == False:
-                    temp_string = character
-                    index += 1
-                    break
-                elif (character == '=' and previous_character == '=') and recording_status == False:
-                    temp_string = "=="
-                    index += 1
-                    break
-                elif (character == '>' and previous_character == '=') and recording_status == False:
-                    temp_string = "=="
-                    index += 1
-                    break
-                elif (character == '<' and previous_character == '=') and recording_status == False:
-                    temp_string = "=="
-                    index += 1
-                    break
-            if recording_status == True:
-                temp_string += character
-            index += 1
+    a_list_of_elements = []
 
-        if temp_string != "":
+    index = 0
+    while index < len(a_line_of_code):
+        character = a_line_of_code[index]
+        if character == '"':
+            temp_string = character
+            temp_index = index + 1
+            previous_character = None
+            while temp_index < len(a_line_of_code):
+                temp_character = a_line_of_code[temp_index]
+                if previous_character != "\\":
+                    if temp_character == '"':
+                        temp_string += temp_character
+                        a_list_of_string_segment.append(temp_string)
+                        a_element = Python_Element_Instance()
+                        a_element.type = "string"
+                        a_element.value = temp_string[1:-1]
+                        a_list_of_elements.append(a_element)
+                        break
+                temp_string += temp_character
+                previous_character = temp_character
+                temp_index += 1
+            index = temp_index
+        elif character == "'":
+            temp_string = character
+            temp_index = index + 1
+            previous_character = None
+            while temp_index < len(a_line_of_code):
+                temp_character = a_line_of_code[temp_index]
+                if previous_character != "\\":
+                    if temp_character == "'":
+                        temp_string += temp_character
+                        a_list_of_string_segment.append(temp_string)
+                        a_element = Python_Element_Instance()
+                        a_element.type = "string"
+                        a_element.value = temp_string[1:-1]
+                        a_list_of_elements.append(a_element)
+                        break
+                temp_string += temp_character
+                previous_character = temp_character
+                temp_index += 1
+            index = temp_index
+        elif character.isdigit():
+            # also parse float until it meets space
+            temp_string = character
+            temp_index = index + 1
+            while temp_index < len(a_line_of_code):
+                temp_character = a_line_of_code[temp_index]
+                if temp_character == " ":
+                    a_list_of_string_segment.append(temp_string)
+                    a_element = Python_Element_Instance()
+                    if "." in temp_string:
+                        a_element.type = "float"
+                        a_element.value = float(temp_string)
+                    else:
+                        a_element.type = "int"
+                        a_element.value = int(temp_string)
+                    a_list_of_elements.append(a_element)
+                    break
+                temp_string += temp_character
+                temp_index += 1
+            index = temp_index
+        elif character == " ":
+            pass
+        elif character in ["+", "-", "*", "/", "%"]:
+            a_list_of_string_segment.append(character)
+        elif character in [">", "<", "="]:
+            # also parse ">=", "<=", "==" until it meets space
+            temp_string = character
+            temp_index = index + 1
+            while temp_index < len(a_line_of_code):
+                temp_character = a_line_of_code[temp_index]
+                if temp_character == " ":
+                    a_list_of_string_segment.append(temp_string)
+                    a_element = Python_Element_Instance()
+                    a_element.type = "operator"
+                    a_element.value = temp_string
+                    a_list_of_elements.append(a_element)
+                    break
+                temp_string += temp_character
+                temp_index += 1
+            index = temp_index
+        elif character in ['(', "[", "{"]:
+            if character == "(":
+                temp_string, new_index = get_text_until_closed_symbol(a_line_of_code[index:], "(", ")")
+            elif character == "[":
+                temp_string, new_index = get_text_until_closed_symbol(a_line_of_code[index:], "[", "]")
+            elif character == "{":
+                temp_string, new_index = get_text_until_closed_symbol(a_line_of_code[index:], "{", "}")
+            index = index + new_index
             a_list_of_string_segment.append(temp_string)
+            a_element = Python_Element_Instance()
+            a_element.type = "one_line_code_block"
+            a_element.value = temp_string
+            a_list_of_elements.append(a_element)
+        elif character.isalpha():
+            temp_string = character
+            temp_index = index + 1
+            previous_character = None
+            while temp_index < len(a_line_of_code):
+                temp_character = a_line_of_code[temp_index]
+                if temp_character == '(':
+                    # need to handle function call
+                    arguments_string, new_index = get_text_until_closed_symbol(a_line_of_code[temp_index:], "(", ")")
+                    temp_string += arguments_string
+                    temp_index += new_index
+                    a_list_of_string_segment.append(temp_string)
+                    a_element = Python_Element_Instance()
+                    a_element.type = "function_call"
+                    a_element.value = temp_string
+                    a_list_of_elements.append(a_element)
+                    break
+                elif temp_character == " ":
+                    # maybe just a variable name
+                    # can also be [and, or, not, True, False, None]
+                    a_list_of_string_segment.append(temp_string)
 
-        string_left = a_line_of_code[index:].strip()
-        a_line_of_code = string_left
-    return a_list_of_string_segment
+                    a_element = Python_Element_Instance()
+                    a_element.value = temp_string
+                    if temp_string == "True":
+                        a_element.type = "bool"
+                        a_element.value = True
+                    elif temp_string == "False":
+                        a_element.type = "bool"
+                        a_element.value = False
+                    elif temp_string == "None":
+                        a_element.type = "none"
+                        a_element.value = None
+                    elif temp_string in ["and", "or", "not"]:
+                        a_element.type = "operator"
+                    else:
+                        a_element.type = "variable"
+                        a_element.name = temp_string
+                    a_list_of_elements.append(a_element)
+                    break
+                temp_string += temp_character
+                previous_character = temp_character
+                temp_index += 1
+            index = temp_index
+        index += 1
 
-"""
-a_list = expression_segment_extraction("""("2" + "2") * ('1' * (2 * 2)) + shit_99(sss, (yy, xx), [2,2])""")
-print(a_list)
-for one in a_list:
-    if one[0] == "(":
-        one = one[1:-1]
-    print(expression_segment_extraction(one))
-exit()
-"""
+    return a_list_of_string_segment, a_list_of_elements
+
+##a_list = expression_segment_extraction("""("2" + "2") * ('1' * (2 * 2)) + shit_99(sss, (yy, xx), [2,2])""")
+#a_list, _ = expression_segment_extraction({}, '''hi() / None''')
+#print(a_list)
+#for one in a_list:
+#    if one[0] == "(":
+#        one = one[1:-1]
+#    print(expression_segment_extraction({}, one)[0])
+#exit()
 
 def evaluate_expression(variable_dict, a_line_of_code):
     # parsing the code char by char from left to right. this should be a replacement for handle_one_line_operations()
+    # it will not care about operation orders, use () to do things first
+    # basic operators: ["+", "-", "*", "/", ">", "<", "=", ">=", "<=", "==", "and", "or"]
     global global_variable_dict
 
-    a_segment_list = expression_segment_extraction(a_line_of_code)
-    # you should try to handle things like ["(", '"a"', "+", '"b"', ")", "*", "2"]
-    # in the end you return a basic type data
+    new_dict = {}
+    for key in variable_dict.keys():
+        if key in global_variable_dict:
+            new_dict[key] = global_variable_dict[key]
+        else:
+            new_dict[key] = variable_dict[key]
+
+    a_list_of_string_segment, a_list_of_elements = expression_segment_extraction(new_dict, a_line_of_code)
 
     a_element = Python_Element_Instance()
     return a_element
