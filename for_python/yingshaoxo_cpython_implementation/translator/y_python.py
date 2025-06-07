@@ -100,7 +100,7 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
             temp_index = index + 1
             while temp_index < len(a_line_of_code):
                 temp_character = a_line_of_code[temp_index]
-                if temp_character == " ":
+                if temp_character == " " or temp_character == ",":
                     a_list_of_string_segment.append(temp_string)
                     a_element = Python_Element_Instance()
                     if "." in temp_string:
@@ -110,12 +110,24 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                         a_element.type = "int"
                         a_element.value = int(temp_string)
                     a_list_of_elements.append(a_element)
-                    break
+
+                    if temp_character == " ":
+                        break
+                    else:
+                        # return immediately if end with ,
+                        return a_list_of_string_segment, a_list_of_elements, index + 1
                 temp_string += temp_character
                 temp_index += 1
             index = temp_index
         elif character == " ":
             pass
+        elif character == ",":
+            #a_list_of_string_segment.append(character)
+            #a_element = Python_Element_Instance()
+            #a_element.type = "comma_separator"
+            #a_element.value = character
+            #a_list_of_elements.append(a_element)
+            return a_list_of_string_segment, a_list_of_elements, index + 1
         elif character in ["+", "-", "*", "/", "%"]:
             a_list_of_string_segment.append(character)
             a_element = Python_Element_Instance()
@@ -145,12 +157,41 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                 temp_string, new_index = get_text_until_closed_symbol(a_line_of_code[index:], "[", "]")
             elif character == "{":
                 temp_string, new_index = get_text_until_closed_symbol(a_line_of_code[index:], "{", "}")
+            old_index = index
             index = index + new_index
             a_list_of_string_segment.append(temp_string)
-            a_element = Python_Element_Instance()
-            a_element.type = "one_line_code_block"
-            a_element.value = temp_string
-            a_list_of_elements.append(a_element)
+            if character == "(":
+                a_element = Python_Element_Instance()
+                a_element.type = "one_line_code_block"
+                a_element.value = temp_string
+                a_list_of_elements.append(a_element)
+            elif character == "[":
+                # handle list
+                # in the end, the element.value should be a list of values
+                # and, you should also implement the list and dict get and set function, such as "a_list = []; a_list.append(1); a_list[0] = 1; del a_list[0]" or "a_dict = {}; a_dict['2'] = 3; del a_dict['2']"
+
+                temp_a_list = []
+                pure_temp_string = temp_string[1:-1]
+                while len(pure_temp_string) > 0:
+                    temp_a_list_of_string_segment, temp_a_list_of_elements, temp_index = expression_segment_extraction(variable_dict, pure_temp_string)
+                    temp_part_value = evaluate_expression(variable_dict, "", a_list_of_elements=temp_a_list_of_elements)
+                    temp_a_list.append(temp_part_value)
+                    pure_temp_string = pure_temp_string[temp_index:]
+
+                a_element = Python_Element_Instance()
+                a_element.type = "list"
+                a_element.value = temp_a_list
+                a_list_of_elements.append(a_element)
+            elif character == "{":
+                # handle dict, let's make it a simple one
+                pure_temp_string = temp_string[1:-1]
+                values = pure_temp_string.split(",") # there may have a bug when a list is in the dict, but we do not care
+                temp_dict = {evaluate_expression(variable_dict, one.split(":")[0].strip()).value: evaluate_expression(variable_dict, one.split(":")[1].strip()) for one in values}
+
+                a_element = Python_Element_Instance()
+                a_element.type = "dict"
+                a_element.value = temp_dict
+                a_list_of_elements.append(a_element)
         elif character.isalpha():
             temp_string = character
             temp_index = index + 1
@@ -168,7 +209,7 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                     a_element.value = temp_string
                     a_list_of_elements.append(a_element)
                     break
-                elif temp_character == " ":
+                elif temp_character == " " or temp_character == ",":
                     # maybe just a variable name
                     # can also be [and, or, not, True, False, None]
                     a_list_of_string_segment.append(temp_string)
@@ -190,6 +231,30 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                         a_element.type = "variable"
                         a_element.name = temp_string
                     a_list_of_elements.append(a_element)
+
+                    if temp_character == " ":
+                        break
+                    else:
+                        # return immediately if end with ,
+                        return a_list_of_string_segment, a_list_of_elements, index + 1
+                elif temp_character == "[":
+                    # it might be a dict[] or list[] element access variable
+                    key_string, new_index = get_text_until_closed_symbol(a_line_of_code[temp_index:], "[", "]")
+                    list_or_dict_variable_name = temp_string
+
+                    temp_string += key_string
+                    temp_index += new_index
+                    a_list_of_string_segment.append(temp_string)
+
+                    pure_key = key_string[1:-1]
+                    if pure_key.startswith('"') or pure_key.startswith("'"):
+                        pure_key = pure_key[1:-1]
+                    else:
+                        pure_key = int(pure_key)
+
+                    the_real_value_element = variable_dict[list_or_dict_variable_name].value[pure_key]
+
+                    a_list_of_elements.append(the_real_value_element)
                     break
                 temp_string += temp_character
                 previous_character = temp_character
@@ -197,20 +262,15 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
             index = temp_index
         index += 1
 
-    return a_list_of_string_segment, a_list_of_elements
-
-##a_list = expression_segment_extraction("""("2" + "2") * ('1' * (2 * 2)) + shit_99(sss, (yy, xx), [2,2])""")
-#a_list, _ = expression_segment_extraction({}, '''a2 < 7''')
-#print(a_list)
-#for one in a_list:
-#    if one[0] == "(":
-#        one = one[1:-1]
-#    print(expression_segment_extraction({}, one)[0])
-#exit()
+    return a_list_of_string_segment, a_list_of_elements, index
 
 def get_real_value_of_a_element(variable_dict, an_element):
     if an_element.type == "one_line_code_block" and an_element.value.startswith("(") and an_element.value.endswith(")"):
         return evaluate_expression(variable_dict, an_element.value[1:-1])
+
+    if an_element.type == "one_line_code_block":
+        result = get_python_element_instance(variable_dict, an_element.value)
+        return result
 
     if an_element.type == "variable":
         result = get_python_element_instance(variable_dict, an_element.value)
@@ -279,7 +339,7 @@ def evaluate_expression(variable_dict, a_line_of_code, a_list_of_elements=None):
             new_dict[key] = variable_dict[key]
 
     if a_list_of_elements == None:
-        a_list_of_string_segment, a_list_of_elements = expression_segment_extraction(new_dict, a_line_of_code)
+        a_list_of_string_segment, a_list_of_elements, _ = expression_segment_extraction(new_dict, a_line_of_code)
 
     if len(a_list_of_elements) == 0:
         a_element = Python_Element_Instance()
@@ -309,6 +369,15 @@ def evaluate_expression(variable_dict, a_line_of_code, a_list_of_elements=None):
         return new_element
     else:
         return evaluate_expression(variable_dict, [new_element] + left_elements)
+
+##a_list, _, _ = expression_segment_extraction("""("2" + "2") * ('1' * (2 * 2)) + shit_99(sss, (yy, xx), [2,2])""")
+##a_list, _, _ = expression_segment_extraction({}, '''[1, 2 * 3, 3]''')
+##print(a_list)
+#a_value = evaluate_expression({}, '{"a": 3, "b": "222"}')
+#print(a_value.value["a"].value)
+##for one in a_value.value:
+##    print(one.value)
+#exit()
 
 def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
     global global_variable_dict
@@ -612,7 +681,7 @@ def process_code(variable_dict, text_code):
                         if value.endswith(")"):
                             class_instance.value["properties"][class_instance_property_name] = handle_function_call(variable_dict, value)
                         else:
-                            class_instance.value["properties"][class_instance_property_name] = handle_one_line_operations(variable_dict, value)
+                            class_instance.value["properties"][class_instance_property_name] = evaluate_expression(variable_dict, value)
 
             elif "." in value and not value.endswith(")"):
                 # class_instance assignment
@@ -713,7 +782,7 @@ def a_function_2(temp_2, temp3):
 a_function_2("nice", temp3="yeah")
 print("is" + " right")
 
-a_dict = {a: 3}
+a_dict = {"a": 3}
 print(a_dict)
 
 a_list = ["god", "yingshaoxo"]
@@ -784,6 +853,17 @@ result2 = a_class.a_variable
 print(result2)
 
 a_class.hi4()
+
+
+
+print("Let's test the list")
+a_list = [1, 2, 3]
+print(a_list[2])
+
+print("Let's test the dict")
+a_dict = {"a": "ying", "b": "shaoxo"}
+print(a_dict["a"])
+print(a_dict["b"])
 '''
 
 process_code(global_variable_dict, a_py_file_text)
