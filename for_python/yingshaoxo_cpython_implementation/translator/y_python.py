@@ -9,7 +9,7 @@
 
 # normally in python you get this dict by using dir()
 global_variable_dict = {
-    "__built_in_s__": ["type"]
+    "__built_in_s__": ["type", "len"]
 }
 
 process = None # later it would be a function
@@ -252,7 +252,19 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                     else:
                         pure_key = int(pure_key)
 
-                    the_real_value_element = variable_dict[list_or_dict_variable_name].value[pure_key]
+                    if type(pure_key) == str:
+                        if pure_key in variable_dict[list_or_dict_variable_name].value:
+                            the_real_value_element = variable_dict[list_or_dict_variable_name].value[pure_key]
+                        else:
+                            the_real_value_element = Python_Element_Instance()
+                    else:
+                        if pure_key < len(variable_dict[list_or_dict_variable_name].value):
+                            the_real_value_element = variable_dict[list_or_dict_variable_name].value[pure_key]
+                        else:
+                            the_real_value_element = Python_Element_Instance()
+
+                    the_real_value_element.information["list_or_dict_variable_name"] = list_or_dict_variable_name
+                    the_real_value_element.information["key_string"] = pure_key
 
                     a_list_of_elements.append(the_real_value_element)
                     break
@@ -494,7 +506,9 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
     line = one_line_code
 
     function_name = line.split("(")[0]
-    function_arguments = line.split("(")[1].split(")")[0].strip()
+    #function_arguments = line.split("(")[1].split(")")[0].strip()
+    function_arguments, _ = get_text_until_closed_symbol(line, "(", ")")
+    function_arguments = function_arguments[1:-1]
 
     if "." in function_name:
         # might be class function call
@@ -504,7 +518,41 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
             class_instance = variable_dict.get(class_instance_name)
             if class_instance == None:
                 class_instance = global_variable_dict.get(class_instance_name)
-            return handle_function_call(class_instance.value["properties"], one_line_code[len(class_instance_name)+1:], class_instance=class_instance)
+            if class_instance.type == "list":
+                if function_name == "append":
+                    append_value = evaluate_expression(variable_dict, function_arguments)
+                    class_instance.value.append(append_value)
+                    return Python_Element_Instance()
+            elif class_instance.type == "string":
+                if function_name == "split":
+                    split_value = evaluate_expression(variable_dict, function_arguments).value
+                    an_element = Python_Element_Instance()
+                    an_element.type = "list"
+                    a_list = class_instance.value.split(split_value)
+                    for index, one in enumerate(a_list):
+                        temp_value = Python_Element_Instance()
+                        temp_value.type = "string"
+                        temp_value.value = one
+                        a_list[index] = temp_value
+                    an_element.value = a_list
+                    return an_element
+                elif function_name == "startswith":
+                    an_element = Python_Element_Instance()
+                    an_element.type = "bool"
+                    an_element.value = class_instance.value.startswith(evaluate_expression(variable_dict, function_arguments).value)
+                    return an_element
+                elif function_name == "endswith":
+                    an_element = Python_Element_Instance()
+                    an_element.type = "bool"
+                    an_element.value = class_instance.value.endswith(evaluate_expression(variable_dict, function_arguments).value)
+                    return an_element
+                elif function_name == "strip":
+                    an_element = Python_Element_Instance()
+                    an_element.type = "string"
+                    an_element.value = class_instance.value.strip()
+                    return an_element
+            else:
+                return handle_function_call(class_instance.value["properties"], one_line_code[len(class_instance_name)+1:-1], class_instance=class_instance)
         else:
             print("Error: no class_instance called '" + class_instance_name + "'")
             return Python_Element_Instance()
@@ -578,6 +626,11 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
             an_element.type = "string"
             an_element.value = handle_one_line_operations(variable_dict, function_arguments).type
             return an_element
+        elif function_name == "len":
+            an_element = Python_Element_Instance()
+            an_element.type = "int"
+            an_element.value = len(evaluate_expression(variable_dict, function_arguments).value)
+            return an_element
     else:
         print("Error: no function called '" + function_name + "'")
         return Python_Element_Instance()
@@ -592,10 +645,14 @@ def general_print(an_element, end="\n"):
                     print(", ", end="")
             print("]", end="\n")
         elif an_element.type == "dict":
+            print("{", end="")
             for temp_element_key, temp_element_value in an_element.value.items():
                 print(temp_element_key, end="")
                 print(": ", end="")
-                general_print(temp_element_value)
+                general_print(temp_element_value, end="")
+            print("}", end="\n")
+        elif an_element.type == "string":
+            print('"' + an_element.value + '"', end=end)
         else:
             print(an_element.value, end=end)
     else:
@@ -645,27 +702,30 @@ def process_code(variable_dict, text_code):
 
             if verifying.type == "bool":
                 if verifying.value == True:
-                    process_code(variable_dict, temp_code_block)
+                    result_element = process_code(variable_dict, temp_code_block)
+                    if result_element.type == "special_operation":
+                        if result_element.value == "continue":
+                            return result_element
+                        elif result_element.value == "break":
+                            return result_element
         elif line.strip().startswith("while "):
             while_line = line
 
             temp_code_block, line_index = get_code_block(lines, line_index)
 
-            an_element = Python_Element_Instance()
-            an_element.type = "bool"
-            an_element.value = False
-            variable_dict["___force_break_while_loop___"] = an_element
             while True:
                 verifying = while_line.split("while ")[1].split(":")[0]
                 verifying = evaluate_expression(variable_dict, verifying)
 
                 if verifying.type == "bool":
                     if verifying.value == True:
-                        process_code(variable_dict, temp_code_block)
-                        if variable_dict["___force_break_while_loop___"].value == True:
-                            break
-                        else:
-                            continue
+                        result_element = process_code(variable_dict, temp_code_block)
+                        if result_element.type == "special_operation":
+                            if result_element.value == "continue":
+                                continue
+                            elif result_element.value == "break":
+                                break
+                        continue
                 break
         elif " = " in line:
             # we save that variable to global variable dict
@@ -712,8 +772,16 @@ def process_code(variable_dict, text_code):
                 else:
                     # normal value
                     an_element = evaluate_expression(variable_dict, value)
-                an_element.name = key
-                variable_dict[key] = an_element
+                if "[" not in key:
+                    an_element.name = key
+                    variable_dict[key] = an_element
+                else:
+                    # could be a dict or list assignment
+                    key_element = evaluate_expression(variable_dict, key)
+                    list_or_dict_variable_name = key_element.information["list_or_dict_variable_name"]
+                    key_string = key_element.information["key_string"]
+                    if list_or_dict_variable_name in variable_dict:
+                        variable_dict[list_or_dict_variable_name].value[key_string] = an_element
         elif "print(" in line:
             key = line.split("print(")[1].split(")")[0]
             value_instance = evaluate_expression(variable_dict, key)
@@ -735,7 +803,6 @@ def process_code(variable_dict, text_code):
             an_element.value = function_code
             variable_dict[function_name] = an_element
         elif (not line.startswith("def ")) and "(" in line and line.endswith(")"):
-            # it is calling a function
             handle_function_call(variable_dict, line)
         elif line.strip().startswith("class "):
             class_name = line.split("class ")[1].split(":")[0].split("()")[0].strip()
@@ -753,12 +820,18 @@ def process_code(variable_dict, text_code):
             return return_variable_name
         elif line.strip() == "break":
             an_element = Python_Element_Instance()
-            an_element.type = "bool"
-            an_element.value = True
-            variable_dict["___force_break_while_loop___"] = an_element
-            return Python_Element_Instance()
+            an_element.type = "special_operation"
+            an_element.value = "break"
+            return an_element
+        elif line.strip() == "continue":
+            an_element = Python_Element_Instance()
+            an_element.type = "special_operation"
+            an_element.value = "continue"
+            return an_element
 
         line_index += 1
+
+    return Python_Element_Instance()
 
 a_py_file_text = '''
 parent_variable = "parent"
@@ -819,6 +892,7 @@ while a2 < (3 + 4):
     if a2 == (6 - 2):
         break
 
+
 class A_Class():
     def __init__(self):
         print("class instance creating...")
@@ -859,11 +933,31 @@ a_class.hi4()
 print("Let's test the list")
 a_list = [1, 2, 3]
 print(a_list[2])
+a_list[0] = 999
+print(a_list[0])
 
 print("Let's test the dict")
 a_dict = {"a": "ying", "b": "shaoxo"}
 print(a_dict["a"])
 print(a_dict["b"])
+a_dict["a"] = "ok"
+print(a_dict["a"])
+a_dict["c"] = "cc"
+print(a_dict["c"])
+
+a_list = []
+a_list.append("hi")
+a_list.append(666)
+print(a_list)
+print(len(a_list))
+
+a_string = "abc edf aaa   "
+a_string = a_string.strip()
+a_split_list = a_string.split(" ")
+print(a_split_list)
+
+true_or_not = a_string.startswith("abc")
+print(true_or_not)
 '''
 
 process_code(global_variable_dict, a_py_file_text)
