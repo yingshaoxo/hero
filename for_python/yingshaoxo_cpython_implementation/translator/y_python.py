@@ -254,7 +254,9 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
 
                     if type(pure_key) == str:
                         if pure_key in variable_dict[list_or_dict_variable_name].value:
-                            the_real_value_element = variable_dict[list_or_dict_variable_name].value[pure_key]
+                            the_real_value_element = variable_dict[list_or_dict_variable_name].value.get(pure_key)
+                            if the_real_value_element == None:
+                                return Python_Element_Instance()
                         else:
                             the_real_value_element = Python_Element_Instance()
                     else:
