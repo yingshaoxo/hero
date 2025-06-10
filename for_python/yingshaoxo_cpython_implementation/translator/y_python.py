@@ -7,9 +7,12 @@
 
 # As for the class, actually we could use a dict to replace class. Just create a dict with some propertys and functions, then whenever you want to create a "new class", you copy that dict, and change those data in that new dict with functions defined inside of that dict. Ofcause you have to pass that dict as 'self' to those functions each time. The python class machinism is just a helper grammer to simplifying that process.
 
+# Now, you can try to implement the 'import' stuff, but I think it is better use relative or absolute .py file path. For example: 'import "./a_lib.py" as a_lib'.
+
+
 # normally in python you get this dict by using dir()
 global_variable_dict = {
-    "__built_in_s__": ["type", "len"]
+    "__built_in_s__": ["type", "len", "eval"]
 }
 
 process = None # later it would be a function
@@ -394,6 +397,7 @@ def evaluate_expression(variable_dict, a_line_of_code, a_list_of_elements=None):
 #exit()
 
 def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
+    # As a simplest solution, I'd like to save this function forever.
     global global_variable_dict
 
     if (a_variable_name_or_raw_value not in variable_dict) and (a_variable_name_or_raw_value not in global_variable_dict):
@@ -446,6 +450,13 @@ def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
 
 def handle_one_line_operations(variable_dict, one_line_code):
     #return eval(one_line_code)
+
+    # sometimes I think this is a simpler parsing method, you see, if you use variable_name for operations, there would have no parsing errors, for example: a == 'xxxx'; b == 'yyyy'; a == b;
+    # variable a and b will have no special chracters.
+    # do operations one by one, simple and easy
+
+    # But now it gets replaces by evaluate_expression()
+    # As a simplest solution, I'd like to save this function forever.
     if " + " in one_line_code:
         parts = one_line_code.split(" + ")
         parts = [get_python_element_instance(variable_dict, one) for one in parts]
@@ -525,6 +536,14 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
                     append_value = evaluate_expression(variable_dict, function_arguments)
                     class_instance.value.append(append_value)
                     return Python_Element_Instance()
+            elif class_instance.type == "dict":
+                if function_name == "get":
+                    get_key = evaluate_expression(variable_dict, function_arguments)
+                    the_value_element = class_instance.value.get(get_key.value)
+                    if the_value_element == None:
+                        return Python_Element_Instance()
+                    else:
+                        return the_value_element
             elif class_instance.type == "string":
                 if function_name == "split":
                     split_value = evaluate_expression(variable_dict, function_arguments).value
@@ -565,10 +584,10 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
             if "=" in one:
                 key = one.split("=")[0]
                 value = one.split("=")[1]
-                value = handle_one_line_operations(variable_dict, value)
+                value = evaluate_expression(variable_dict, value)
             else:
                 key = "___argument"+str(index)
-                value = handle_one_line_operations(variable_dict, one)
+                value = evaluate_expression(variable_dict, one)
             arguments_are_variable_dict[key] = value
 
     if (function_name in variable_dict) or (function_name in global_variable_dict):
@@ -626,13 +645,16 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
         if function_name == "type":
             an_element = Python_Element_Instance()
             an_element.type = "string"
-            an_element.value = handle_one_line_operations(variable_dict, function_arguments).type
+            an_element.value = evaluate_expression(variable_dict, function_arguments).type
             return an_element
         elif function_name == "len":
             an_element = Python_Element_Instance()
             an_element.type = "int"
             an_element.value = len(evaluate_expression(variable_dict, function_arguments).value)
             return an_element
+        elif function_name == "eval":
+            an_element = Python_Element_Instance()
+            return evaluate_expression(variable_dict, function_arguments[1:-1])
     else:
         print("Error: no function called '" + function_name + "'")
         return Python_Element_Instance()
@@ -785,7 +807,7 @@ def process_code(variable_dict, text_code):
                     if list_or_dict_variable_name in variable_dict:
                         variable_dict[list_or_dict_variable_name].value[key_string] = an_element
         elif "print(" in line:
-            key = line.split("print(")[1].split(")")[0]
+            key = line.split("print(")[1][:-1]
             value_instance = evaluate_expression(variable_dict, key)
             general_print(value_instance)
         elif line.strip().startswith("def "):
@@ -946,6 +968,7 @@ a_dict["a"] = "ok"
 print(a_dict["a"])
 a_dict["c"] = "cc"
 print(a_dict["c"])
+print(a_dict.get("c"))
 
 a_list = []
 a_list.append("hi")
@@ -960,6 +983,8 @@ print(a_split_list)
 
 true_or_not = a_string.startswith("abc")
 print(true_or_not)
+
+print(eval("(1 + 1) * 3"))
 '''
 
 process_code(global_variable_dict, a_py_file_text)
