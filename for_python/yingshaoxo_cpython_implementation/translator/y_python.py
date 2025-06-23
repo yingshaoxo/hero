@@ -15,6 +15,7 @@ global_variable_dict = {
     "__built_in_s__": ["type", "len", "eval"]
 }
 
+old_print = print
 process = None # later it would be a function
 
 class Python_Element_Instance():
@@ -857,7 +858,26 @@ def process_code(variable_dict, text_code):
 
     return Python_Element_Instance()
 
-a_py_file_text = '''
+def run_python_code(code):
+    global print, old_print
+    print = old_print
+    process_code(global_variable_dict, code)
+
+console_text = ""
+def run_python_code_and_return_print_value(code):
+    global print, old_print, console_text
+    console_text = ""
+    def custom_print(*argument_list, **argument_dict):
+        global console_text
+        for one in argument_list:
+            console_text += str(one) + "\n"
+        old_print(*argument_list, **argument_dict)
+    print = custom_print
+    process_code(global_variable_dict, code)
+    return console_text
+
+if __name__ == "__main__":
+    a_py_file_text = '''
 parent_variable = "parent"
 print(parent_variable)
 
@@ -985,6 +1005,6 @@ true_or_not = a_string.startswith("abc")
 print(true_or_not)
 
 print(eval("(1 + 1) * 3"))
-'''
+    '''
 
-process_code(global_variable_dict, a_py_file_text)
+    run_python_code(a_py_file_text)
