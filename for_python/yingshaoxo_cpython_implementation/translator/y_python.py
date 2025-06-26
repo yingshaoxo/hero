@@ -10,6 +10,10 @@
 # Now, you can try to implement the 'import' stuff, but I think it is better use relative or absolute .py file path. For example: 'import "./a_lib.py" as a_lib'.
 
 
+# Actually you can implement a c version of c_interpreter, execute c code in real time, just like what python did. Then you create a c_python.c, in the end, you run your python script just like: ./c_interpreter.run custom_c_python.c your_python_script.py
+# It is not only python, but also other programming langugage, you just have to compile the c_interpreter.run once, then use it everywhere. Like "./c_interpreter.run java_interpreter.c a_program.java", "./c_interpreter.run php_interpreter.c a_program.php", "./c_interpreter.run javascript_interpreter.c a_program.js", "./c_interpreter.run cpp_interpreter.c a_program.cpp", "./c_interpreter.run go_interpreter.c a_program.go", "./c_interpreter.run bash_script_runner.c a_terminal_script.sh"
+
+
 # normally in python you get this dict by using dir()
 global_variable_dict = {
     "__built_in_s__": ["type", "len", "eval"]
