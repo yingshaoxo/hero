@@ -229,7 +229,7 @@ def expression_segment_extraction(variable_dict, a_line_of_code):
                     elif temp_string == "None":
                         a_element.type = "none"
                         a_element.value = None
-                    elif temp_string in ["and", "or", "not"]:
+                    elif temp_string in ["and", "or", "not", "in"]:
                         a_element.type = "operator"
                     else:
                         a_element.type = "variable"
@@ -339,6 +339,9 @@ def do_operation_for_two_element(operator_element, an_element_1, an_element_2):
     elif operator == "or":
         new_element.type = "bool"
         new_element.value = an_element_1.value or an_element_2.value
+    elif operator == "in":
+        new_element.type = "bool"
+        new_element.value = an_element_1.value in an_element_2.value
     else:
         new_element.type == "none"
 
@@ -369,9 +372,15 @@ def evaluate_expression(variable_dict, a_line_of_code, a_list_of_elements=None):
         one_element = get_real_value_of_a_element(variable_dict, one_element)
         return one_element
     elif len(a_list_of_elements) == 2:
-        one_element = a_list_of_elements[0]
-        one_element = get_real_value_of_a_element(variable_dict, one_element)
-        return one_element
+        first_element = a_list_of_elements[0]
+        second_element = a_list_of_elements[1]
+        if first_element.type == "operator" and first_element.value == "not":
+            a_value = get_real_value_of_a_element(variable_dict, second_element)
+            a_value.value = not a_value.value
+            return a_value
+        else:
+            one_element = get_real_value_of_a_element(variable_dict, first_element)
+            return one_element
 
     value_1 = a_list_of_elements[0]
     value_2 = a_list_of_elements[1]
@@ -1005,6 +1014,11 @@ true_or_not = a_string.startswith("abc")
 print(true_or_not)
 
 print(eval("(1 + 1) * 3"))
+
+print("a" in "ab")
+print("a" in "b")
+
+print(not ('a' in 'b'))
     '''
 
     run_python_code(a_py_file_text)
