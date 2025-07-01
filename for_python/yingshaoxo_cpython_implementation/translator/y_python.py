@@ -3,11 +3,11 @@
 
 # If you can implement the eval() function that matchs original python functionality, then this project would be 100% available for production. Then you just have to implement the 'import' functionality.
 
-# I think there might have ways to implement try and catch method, because we know if a variable_name or function_name is defined or not before we run a line of code, and we also know if code in a function has syntax error or not. I just need to find a way to mimic the original python try and except error handling behavior. OK, I got it, we just have to create a Python_Element_Instance where its type is "Error" and give the general_value a error_string to descript that error. Then in the process_code function, if we get a error element, we print error and return immediately. And when we hit 'try code_block', we run that code block first, if we get any error element, we drop that code_block, then we run 'except code_block'.
+# I think there might have ways to implement try and catch method, because we know if a variable_name or function_name is defined or not before we run a line of code, and we also know if code in a function has syntax error or not. I just need to find a way to mimic the original python try and except error handling behavior. OK, I got it, we just have to create a Python_Element_Instance where its type is "error" and give the general_value a error_string to descript that error. Then in the process_code function, if we get a error element, we print error and return immediately. And when we hit 'try code_block', we run that code block first, if we get any error element, we drop that code_block, then we run 'except code_block'.
 
-# As for the class, actually we could use a dict to replace class. Just create a dict with some propertys and functions, then whenever you want to create a "new class", you copy that dict, and change those data in that new dict with functions defined inside of that dict. Ofcause you have to pass that dict as 'self' to those functions each time. The python class machinism is just a helper grammer to simplifying that process.
+# As for the class, actually we could use a dict to replace class. Just create a dict with some propertys and functions, then whenever you want to create a "new class", you copy that dict, and change those data in that new dict with functions defined inside of that dict. Ofcause you have to pass that dict as 'self' to those functions each time. The python class machinism is just a helper grammer to simplifying that process. The whole class implementation would end up like what javascript define its class at the beginning, they just use a dict.
 
-# Now, you can try to implement the 'import' stuff, but I think it is better use relative or absolute .py file path. For example: 'import "./a_lib.py" as a_lib'.
+# Now, you can try to implement the 'import' stuff, but I think it is better to use relative or absolute .py file path. For example: 'import "./a_lib.py" as a_lib'.
 
 
 # Actually you can implement a c version of c_interpreter, execute c code in real time, just like what python did. Then you create a c_python.c, in the end, you run your python script just like: ./c_interpreter.run custom_c_python.c your_python_script.py
@@ -16,7 +16,7 @@
 
 # normally in python you get this dict by using dir()
 global_variable_dict = {
-    "__built_in_s__": ["type", "len", "eval"]
+    "__built_in_s__": ["type", "len", "eval", "str"]
 }
 
 old_print = print
@@ -471,8 +471,8 @@ def get_python_element_instance(variable_dict, a_variable_name_or_raw_value):
             values = {one.split(": ")[0].strip(): get_python_element_instance(variable_dict, one.split(":")[1].strip()) for one in values}
             a_element.value = values
         else:
-            # unknow, treat it as string
-            a_element.type = "string"
+            # unknow
+            a_element.type = "error"
             a_element.value = "Error: no variable called '" + str(a_variable_name_or_raw_value) + "'"
         return a_element
     else:
@@ -551,7 +551,7 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
     global global_variable_dict
     line = one_line_code
 
-    function_name = line.split("(")[0]
+    function_name = line.split("(")[0].lstrip()
     #function_arguments = line.split("(")[1].split(")")[0].strip()
     function_arguments, _ = get_text_until_closed_symbol(line, "(", ")")
     function_arguments = function_arguments[1:-1]
@@ -608,8 +608,10 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
             else:
                 return handle_function_call(class_instance.value["properties"], one_line_code[len(class_instance_name)+1:-1], class_instance=class_instance)
         else:
-            print("Error: no class_instance called '" + class_instance_name + "'")
-            return Python_Element_Instance()
+            an_element = Python_Element_Instance()
+            an_element.type = "error"
+            an_element.value = "Error: no class_instance called '" + class_instance_name + "'"
+            return an_element
 
     arguments_are_variable_dict = {}
     if function_arguments != "":
@@ -688,9 +690,16 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
         elif function_name == "eval":
             an_element = Python_Element_Instance()
             return evaluate_expression(variable_dict, function_arguments[1:-1])
+        elif function_name == "str":
+            an_element = Python_Element_Instance()
+            an_element.type = "string"
+            an_element.value = str(evaluate_expression(variable_dict, function_arguments).value)
+            return an_element
     else:
-        print("Error: no function called '" + function_name + "'")
-        return Python_Element_Instance()
+        an_element = Python_Element_Instance()
+        an_element.type = "error"
+        an_element.value = "Error: no function called '" + function_name + "'"
+        return an_element
 
 def general_print(an_element, end="\n"):
     if "type" in dir(an_element):
@@ -762,10 +771,9 @@ def process_code(variable_dict, text_code):
                 if verifying.value == True:
                     result_element = process_code(variable_dict, temp_code_block)
                     if result_element.type == "special_operation":
-                        if result_element.value == "continue":
-                            return result_element
-                        elif result_element.value == "break":
-                            return result_element
+                        return result_element
+                    elif result_element.type == "error":
+                        return result_element
         elif line.strip().startswith("while "):
             while_line = line
 
@@ -779,12 +787,32 @@ def process_code(variable_dict, text_code):
                     if verifying.value == True:
                         result_element = process_code(variable_dict, temp_code_block)
                         if result_element.type == "special_operation":
-                            if result_element.value == "continue":
+                            if result_element.name == "continue":
                                 continue
-                            elif result_element.value == "break":
+                            elif result_element.name == "break":
                                 break
+                            elif result_element.name == "return":
+                                return result_element
+                        elif result_element.type == "error":
+                            return result_element
+                            #todo: there should have a way to handle return, but I don't know how
                         continue
                 break
+        elif line.strip().startswith("try:"):
+            temp_code_block, line_index = get_code_block(lines, line_index)
+
+            result_element = process_code(variable_dict, temp_code_block)
+            if result_element.type == "special_operation":
+                return result_element
+            if result_element.type == "error":
+                # handle except code block
+                except_code_block, line_index = get_code_block(lines, line_index+1)
+                variable_dict["e"] = result_element
+                result_element_2 = process_code(variable_dict, except_code_block)
+                if result_element_2.type == "special_operation":
+                    return result_element_2
+                elif result_element_2.type == "error":
+                    return result_element_2
         elif " = " in line:
             # we save that variable to global variable dict
             key, value = line.split(" = ")
@@ -843,6 +871,12 @@ def process_code(variable_dict, text_code):
                     # normal value
                     an_element = evaluate_expression(variable_dict, value)
 
+                if an_element.type == "error":
+                    return an_element
+                elif an_element.type == "special_operation":
+                    if an_element.name == "return":
+                        an_element = an_element.value
+
                 if "[" not in key:
                     an_element.name = key
                     variable_dict[key] = an_element
@@ -874,7 +908,13 @@ def process_code(variable_dict, text_code):
             an_element.value = function_code
             variable_dict[function_name] = an_element
         elif (not line.startswith("def ")) and "(" in line and line.endswith(")"):
-            handle_function_call(variable_dict, line)
+            # a simple function call
+            an_element = handle_function_call(variable_dict, line)
+            if an_element.type == "error":
+                return an_element
+            elif an_element.type == "special_operation":
+                if an_element.name == "return":
+                    an_element = an_element.value
         elif line.strip().startswith("class "):
             class_name = line.split("class ")[1].split(":")[0].split("()")[0].strip()
 
@@ -887,17 +927,23 @@ def process_code(variable_dict, text_code):
             variable_dict[class_name] = an_element
         elif line.strip().startswith("return "):
             return_variable_name = line.split("return ")[1]
-            return_variable_name = evaluate_expression(variable_dict, return_variable_name)
-            return return_variable_name
+            return_variable_value = evaluate_expression(variable_dict, return_variable_name)
+
+            an_element = Python_Element_Instance()
+            an_element.type = "special_operation"
+            an_element.name = "return"
+            an_element.value = return_variable_value
+
+            return an_element
         elif line.strip() == "break":
             an_element = Python_Element_Instance()
             an_element.type = "special_operation"
-            an_element.value = "break"
+            an_element.name = "break"
             return an_element
         elif line.strip() == "continue":
             an_element = Python_Element_Instance()
             an_element.type = "special_operation"
-            an_element.value = "continue"
+            an_element.name = "continue"
             return an_element
 
         line_index += 1
@@ -919,7 +965,9 @@ def run_python_code_and_return_print_value(code):
             console_text += str(one) + "\n"
         old_print(*argument_list, **argument_dict)
     print = custom_print
-    process_code(global_variable_dict, code)
+    a_element = process_code(global_variable_dict, code)
+    if a_element.type == "error":
+        print(a_element)
     return console_text
 
 if __name__ == "__main__":
@@ -1074,6 +1122,26 @@ a_complex_list = [
 ]
 
 print(a_complex_list)
+
+
+def a_return_function():
+    while True:
+        if 1 == 1:
+            print("get into a_return_function")
+            return None
+    print("error happened in return_function")
+a_return_function()
+print("exit_a_return_function")
+
+try:
+    a_value = a_function_3(1, 2)
+    print(a_value)
+    hiasdfkaljs()
+except Exception as e:
+    print("what error?")
+    print(e)
+
+print(str(123))
     '''
 
     run_python_code(a_py_file_text)
