@@ -1,3 +1,10 @@
+/*
+I have created a python_based python_interpreter, it works fine. (since now I can have a full control on python syntax, so I do not care about new python syntax anymore, all code will pass to my python interpreter, then the actual python interpreter. So even if I use python3.2/2.7, I can still run python4.0 or later code without problems...)
+
+So the need for rewrite a c_based python is not that important. We will continue to work on this in the future.
+*/
+
+
 #include "../y_python.h"
 #include "../y_python_linux.h"
 
