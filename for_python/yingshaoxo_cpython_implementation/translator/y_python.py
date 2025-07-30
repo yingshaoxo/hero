@@ -16,7 +16,7 @@
 
 # normally in python you get this dict by using dir()
 global_variable_dict = {
-    "__built_in_s__": ["type", "len", "eval", "str"]
+    "__built_in_s__": ["type", "len", "int", "eval", "str", "exit"]
 }
 
 old_print = print
@@ -25,7 +25,7 @@ process = None # later it would be a function
 class Python_Element_Instance():
     def __init__(self):
         # none, string, bool, int, float, list, dict, function(a_string_of_code_block), class, class_instance(propertys:dict{...variable_dict, ...functions.dict})
-        self.type = "None"
+        self.type = "none"
         self.name = None # variable name, function name, class name
         self.value = None # in c, it is Ypython_General()
         self.information = {}
@@ -418,7 +418,7 @@ def evaluate_expression(variable_dict, a_line_of_code, a_list_of_elements=None):
     if len(left_elements) < 2:
         return new_element
     else:
-        return evaluate_expression(variable_dict, [new_element] + left_elements)
+        return evaluate_expression(variable_dict, a_line_of_code="", a_list_of_elements=[new_element] + left_elements)
 
 ##a_list, _, _ = expression_segment_extraction("""("2" + "2") * ('1' * (2 * 2)) + shit_99(sss, (yy, xx), [2,2])""")
 ##a_list, _, _ = expression_segment_extraction({}, '''[1, 2 * 3, 3]''')
@@ -695,6 +695,12 @@ def handle_function_call(variable_dict, one_line_code, class_instance=None):
             an_element.type = "string"
             an_element.value = str(evaluate_expression(variable_dict, function_arguments).value)
             return an_element
+        elif function_name == "exit":
+            exit()
+            an_element = Python_Element_Instance()
+            an_element.type = "none"
+            an_element.value = None
+            return an_element
     else:
         an_element = Python_Element_Instance()
         an_element.type = "error"
@@ -719,9 +725,13 @@ def general_print(an_element, end="\n"):
                 print(", ", end="")
             print("}", end="\n")
         elif an_element.type == "string":
-            print('"' + an_element.value + '"', end=end)
+            #print('"' + an_element.value + '"', end=end)
+            print(an_element.value.encode().decode('unicode-escape'), end=end)
         else:
-            print(an_element.value, end=end)
+            if type(an_element.value) == str:
+                print(an_element.value.encode().decode('unicode-escape'), end=end)
+            else:
+                print(an_element.value, end=end)
     else:
         print(an_element)
 
@@ -813,6 +823,20 @@ def process_code(variable_dict, text_code):
                     return result_element_2
                 elif result_element_2.type == "error":
                     return result_element_2
+        elif line.strip().startswith("assert "):
+            rest_line = line.lstrip()[len("assert "):]
+            a_list_that_has_two_element = evaluate_expression(variable_dict, rest_line)
+            if type(a_list_that_has_two_element) == list and len(a_list_that_has_two_element) == 2:
+                verifying, error_message = a_list_that_has_two_element
+                if verifying.type in ["special_operation", "error"]:
+                    return verifying
+            else:
+                verifying = a_list_that_has_two_element
+            if not verifying.value:
+                an_element = Python_Element_Instance()
+                an_element.type = "error"
+                an_element.value = "Error: the follow code did not pass: " + rest_line
+                return an_element
         elif " = " in line:
             # we save that variable to global variable dict
             key, value = line.split(" = ")
@@ -953,7 +977,7 @@ def process_code(variable_dict, text_code):
 def run_python_code(code):
     global print, old_print
     print = old_print
-    process_code(global_variable_dict, code)
+    return process_code(global_variable_dict, code)
 
 console_text = ""
 def run_python_code_and_return_print_value(code):
@@ -971,177 +995,34 @@ def run_python_code_and_return_print_value(code):
     return console_text
 
 if __name__ == "__main__":
-    a_py_file_text = '''
-parent_variable = "parent"
-print(parent_variable)
+    try:
+        import sys
+        command_line_arguments = sys.argv
 
-def a_function_1():
-    a_child_variable = "whatever"
-    print(parent_variable)
-    print(a_child_variable)
+        if len(command_line_arguments) >= 2:
+            real_python_script_path = command_line_arguments[1]
+            with open(real_python_script_path, "r", encoding="utf-8", errors="ignore") as f:
+                real_code = f.read()
+            run_python_code(real_code)
+        else:
+            print("yingshaoxo python, version 1.0")
+            while True:
+                print("\n>>> ", end="")
+                one_line_input = input("")
+                if (not one_line_input.startswith("print(")) and (" = " not in one_line_input) and (not one_line_input.startswith("assert ")):
+                    one_line_input = "print(" + one_line_input + ")"
+                try:
+                    result = run_python_code(one_line_input)
+                    if not result.type == "none":
+                        general_print(result)
+                except Exception as e:
+                    print(e)
+    except Exception as e:
+        print(e)
+        print("""
+Help Documentation:
 
-a_function_1()
-print(a_child_variable)
+    python3 y_python.py
 
-def a_function_2(temp_2, temp3):
-    temp_1 = " you say"
-    a_child_variable2 = "whatever" + temp_1
-    print(a_child_variable2)
-    print(temp_2)
-    print(temp3)
-
-a_function_2("nice", temp3="yeah")
-print("is" + " right")
-
-a_dict = {"a": 3}
-print(a_dict)
-
-a_list = ["god", "yingshaoxo"]
-print(a_list)
-
-print(2 + 3)
-
-a_type = type(2)
-print(a_type)
-
-def a_function_3(number_1, number_2):
-    return number_1 + number_2
-
-result1 = a_function_3(number_1=6, number_2=7)
-print(result1)
-
-long_text = """
-hi you,
-    dear.
-"""
-
-print(long_text)
-
-
-a2 = 1
-b2 = 1
-print(a2 == b2)
-if a2 == b2:
-    print("a2 and b2 is equal")
-
-while a2 < (3 + 4):
-    print(a2)
-    a2 = a2 + 1
-    if a2 == (6 - 2):
-        break
-
-
-class A_Class():
-    def __init__(self):
-        print("class instance creating...")
-        self.pre_defined_variable = "variable created in class creation"
-
-    def hi(self):
-        temp = self.pre_defined_variable
-        print(temp)
-        print("yingshaoxo:")
-
-    def hi2(self, words):
-        print(words)
-        return "you"
-
-    def hi3(self):
-        self.a_variable = 222
-        local_variable = 666
-
-    def hi4(self):
-        a_test2 = self.a_variable
-        a_test2 = a_test2 + 1
-        print(a_test2)
-        print(local_variable)
-
-a_class = A_Class()
-a_class.hi()
-result = a_class.hi2(words="hi")
-print(result)
-
-a_class.hi3()
-result2 = a_class.a_variable
-print(result2)
-
-a_class.hi4()
-
-
-
-print("Let's test the list")
-a_list = [1, 2, 3]
-print(a_list[2])
-a_list[0] = 999
-print(a_list[0])
-
-print("Let's test the dict")
-a_dict = {"a": "ying", "b": "shao,xo"}
-print(a_dict["a"])
-print(a_dict["b"])
-a_dict["a"] = "ok"
-print(a_dict)
-print(a_dict["a"])
-a_dict["c"] = "cc"
-print(a_dict["c"])
-print(a_dict.get("c"))
-
-a_list = []
-a_list.append("hi")
-a_list.append(666)
-print(a_list)
-print(len(a_list))
-
-a_string = "abc edf aaa   "
-a_string = a_string.strip()
-a_split_list = a_string.split(" ")
-print(a_split_list)
-
-true_or_not = a_string.startswith("abc")
-print(true_or_not)
-
-print(eval("(1 + 1) * 3"))
-
-print("a" in "ab")
-print("a" in "b")
-
-print(not ('a' in 'b'))
-
-a_complex_dict = {
-    "username": {
-        "language": ["en", "cn"]
-    },
-    "a_list": [1, 2, 3, None],
-    "a_value": 666
-}
-print(a_complex_dict)
-
-a_complex_list = [
-    {"bb": "baby", "fun_list": ["fun", 2333]},
-    "god_boy",
-    6666
-]
-
-print(a_complex_list)
-
-
-def a_return_function():
-    while True:
-        if 1 == 1:
-            print("get into a_return_function")
-            return None
-    print("error happened in return_function")
-a_return_function()
-print("exit_a_return_function")
-
-try:
-    a_value = a_function_3(1, 2)
-    print(a_value)
-    hiasdfkaljs()
-except Exception as e:
-    print("what error?")
-    print(e)
-
-print(str(123))
-    '''
-
-    run_python_code(a_py_file_text)
+    python3 y_python.py xxx.py
+        """)
